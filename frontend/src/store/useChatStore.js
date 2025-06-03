@@ -48,6 +48,11 @@ export const useChatStore = create((set, get) => ({
     if (!selectedUser) return;
 
     const socket = useAuthStore.getState().socket;
+    if (!socket) {
+      // Defensive: don't subscribe if socket is not ready
+      console.warn("Socket not initialized, cannot subscribe to messages.");
+      return;
+    }
 
     socket.on("newMessage", (newMessage) => {
       const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
@@ -61,6 +66,7 @@ export const useChatStore = create((set, get) => ({
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
+    if (!socket) return; // Defensive: don't unsubscribe if socket is not ready
     socket.off("newMessage");
   },
 

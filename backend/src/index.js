@@ -13,10 +13,11 @@ import { app, server } from "./lib/socket.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 const __dirname = path.resolve();
 
-app.use(express.json());
+// Increase JSON payload limit to support large profile images
+app.use(express.json({ limit: "20mb" }));
 app.use(cookieParser());
 app.use(
   cors({
@@ -36,7 +37,8 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+// Replace app.listen with server.listen to enable Socket.io
 server.listen(PORT, () => {
-  console.log("server is running on PORT:" + PORT);
+  console.log(`Server is running on PORT:${PORT}`);
   connectDB();
 });
