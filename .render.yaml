@@ -2,12 +2,12 @@ services:
   - type: web
     name: fullstack-app
     env: node
-    rootDir: .
+    rootDir: backend
     buildCommand: |
-      npm install --prefix backend
-      npm install --prefix frontend
-      npm run build --prefix frontend
-    startCommand: node backend/src/index.js
+      cd ../frontend
+      npm install
+      npm run build
+    startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
