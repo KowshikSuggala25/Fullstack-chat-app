@@ -11,7 +11,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist', // Explicitly define build output folder
-    chunkSizeWarningLimit: 1500
+    chunkSizeWarningLimit: 1500,
     emptyOutDir: true,
   },
   resolve: {
