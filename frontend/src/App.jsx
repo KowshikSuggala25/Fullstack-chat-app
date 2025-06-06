@@ -1,5 +1,4 @@
 import Navbar from "./components/Navbar";
-
 import HomePage from "./pages/HomePage";
 import SignUpPage from "./pages/SignUpPage";
 import LoginPage from "./pages/LoginPage";
@@ -18,21 +17,11 @@ const App = () => {
   const { authUser, checkAuth, isCheckingAuth, onlineUsers } = useAuthStore();
   const { theme } = useThemeStore();
 
-  console.log({ onlineUsers });
-
-import { useCallback } from "react";
-
-export const useAuthStore = create((set) => {
-  const checkAuth = useCallback(async () => {
-    // ... code ...
-  }, []);
-
-  return {
-    // other state and actions
-    checkAuth,
-  };
-});
-
+  useEffect(() => {
+    checkAuth().catch((err) => {
+      console.error("Auth check failed:", err);
+    });
+  }, []); // run once on mount
 
   if (isCheckingAuth && !authUser)
     return (
@@ -57,4 +46,5 @@ export const useAuthStore = create((set) => {
     </div>
   );
 };
+
 export default App;
