@@ -20,11 +20,19 @@ const App = () => {
 
   console.log({ onlineUsers });
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+import { useCallback } from "react";
 
-  console.log({ authUser });
+export const useAuthStore = create((set) => {
+  const checkAuth = useCallback(async () => {
+    // ... code ...
+  }, []);
+
+  return {
+    // other state and actions
+    checkAuth,
+  };
+});
+
 
   if (isCheckingAuth && !authUser)
     return (
