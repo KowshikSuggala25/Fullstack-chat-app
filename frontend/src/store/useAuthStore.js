@@ -19,11 +19,8 @@ export const useAuthStore = create((set) => ({
       return;
     }
     try {
-      const res = await axios.post(
-        "/api/auth/login",
-        formData,
-        { withCredentials: true }
-      );
+      const res = await axios.post("/api/auth/login", formData);
+
       const user = res.data?.user;
       if (!user || !user._id) {
         throw new Error("Invalid user data received from server");
