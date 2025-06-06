@@ -57,24 +57,22 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find the user
     const user = await User.findOne({ email });
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // Create JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    // Respond with user data and token
     res.status(200).json({
       user: {
         id: user._id,
-        username: user.username,
+        fullName: user.fullName,
         email: user.email,
+        profilePic: user.profilePic || null,
       },
       token,
     });
