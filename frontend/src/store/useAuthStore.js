@@ -7,6 +7,7 @@ export const useAuthStore = create((set) => ({
   authUser: null,
   isLoggingIn: false,
   isSigningUp: false,
+  isCheckingAuth: false,
   isUpdatingProfile: false,
   onlineUsers: [], // <-- add this line
   socket: null,
@@ -62,12 +63,13 @@ export const useAuthStore = create((set) => ({
     }
   },
   checkAuth: async () => {
+    set({ isCheckingAuth: true });
     try {
       const res = await axios.get("/api/auth/check", { withCredentials: true });
-      set({ authUser: res.data.user }); // Make sure your backend returns { user: ... }
+      set({ authUser: res.data.user, isCheckingAuth: false });
       return res.data.user;
     } catch (err) {
-      set({ authUser: null });
+      set({ authUser: null, isCheckingAuth: false });
       return null;
     }
   },
