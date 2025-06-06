@@ -50,35 +50,40 @@ export const signup = async (req, res) => {
   }
 };
 
+import User from "../models/user.model.js"; // or whatever your path is
+import jwt from "jsonwebtoken";
+
 export const login = async (req, res) => {
-  const { email, password } = req.body;
   try {
+    const { email, password } = req.body;
+
+    // Find the user
     const user = await User.findOne({ email });
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
-    if (!isPasswordCorrect) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    // Create JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
-    generateToken(user._id, res);
-
+    // Respond with user data and token
     res.status(200).json({
       user: {
-        _id: user._id,
-        fullName: user.fullName,
+        id: user._id,
+        username: user.username,
         email: user.email,
-        profilePic: user.profilePic,
-      }
+      },
+      token,
     });
   } catch (error) {
-    console.log("Error in login controller", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Login error:", error.message);
+    res.status(500).json({ message: "Server error during login" });
   }
 };
+
 
 export const logout = (req, res) => {
   try {
