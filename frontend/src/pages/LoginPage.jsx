@@ -12,7 +12,7 @@ const LoginPage = () => {
   });
   const { login, isLoggingIn } = useAuthStore();
   const navigate = useNavigate();
-
+  const [errorMsg, setErrorMsg] = useState("");
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -22,6 +22,7 @@ const LoginPage = () => {
     } catch (error) {
       // Optionally handle login error here
       // e.g., show error message
+      setErrorMsg(error.message || "Login failed. Please try again.");
     }
   };
 
