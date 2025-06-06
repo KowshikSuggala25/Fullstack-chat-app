@@ -24,19 +24,15 @@ export const useAuthStore = create((set) => ({
         formData,
         { withCredentials: true }
       );
-      const socket = io("http://localhost:5000", {
-        query: { userId: res.data.user._id },
-      });
-      const user = response.data?.user;
+      const user = res.data?.user;
       if (!user || !user._id) {
         throw new Error("Invalid user data received from server");
       }
-      set({ authUser: res.data.user, isLoggingIn: false, socket });
-      return res.data.user;
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(user));
-
-      set({ isLoggingIn: false });
+      const socket = io("http://localhost:5000", {
+        query: { userId: user._id },
+      });
+      set({ authUser: user, isLoggingIn: false, socket });
+      return user;
     } catch (err) {
       set({ isLoggingIn: false });
       const errorMsg =
