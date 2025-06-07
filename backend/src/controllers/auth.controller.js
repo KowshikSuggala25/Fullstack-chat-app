@@ -55,7 +55,10 @@ import jwt from "jsonwebtoken";
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    const socket = io(import.meta.env.VITE_SOCKET_URL, {
+    query: { userId: user._id },
+    });
+set({ authUser: user, isLoggingIn: false, socket });
     const user = await User.findOne({ email });
 
     if (!user || !(await user.comparePassword(password))) {
