@@ -69,7 +69,7 @@ set({ authUser: user, isLoggingIn: false, socket });
 
     res.status(200).json({
       user: {
-        _id: user._id,
+        id: user._id,
         fullName: user.fullName,
         email: user.email,
         profilePic: user.profilePic || null,
