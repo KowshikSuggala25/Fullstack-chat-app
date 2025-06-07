@@ -50,7 +50,6 @@ export const signup = async (req, res) => {
   }
 };
 
-import User from "../models/user.model.js"; // or whatever your path is
 import jwt from "jsonwebtoken";
 
 export const login = async (req, res) => {
