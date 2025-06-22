@@ -51,13 +51,12 @@ export const signup = async (req, res) => {
 };
 
 import jwt from "jsonwebtoken";
-
+import User from "../models/user.model.js";
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-set({ authUser: user, isLoggingIn: false, socket });
     const user = await User.findOne({ email });
+//set({ authUser: user, isLoggingIn: false, socket });
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "Invalid email or password" });
