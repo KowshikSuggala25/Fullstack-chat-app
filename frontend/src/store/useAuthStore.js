@@ -9,103 +9,118 @@ export const useAuthStore = create((set) => ({
   isSigningUp: false,
   isCheckingAuth: false,
   isUpdatingProfile: false,
-  onlineUsers: [], // <-- add this line
   socket: null,
+
   login: async (formData) => {
     set({ isLoggingIn: true });
-    // Defensive check for required fields
-    if (!formData || !formData.email || !formData.password) {
-      set({ isLoggingIn: false });
+
+    if (!formData?.email || !formData?.password) {
       toast.error("Email and password are required");
+      set({ isLoggingIn: false });
       return;
     }
+
     try {
       const res = await axios.post("/api/auth/login", formData);
 
       const user = res.data?.user;
-      if (!user || !user._id) {
-        throw new Error("Invalid user data received from server");
+      const token = res.data?.token;
+
+      if (!user || !user._id || !token) {
+        throw new Error("Invalid user or token received from server");
       }
-      const socket = io("http://localhost:5000", {
+
+      // Store token if you're using localStorage
+      localStorage.setItem("token", token);
+
+      // Establish socket connection
+      const socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
         query: { userId: user._id },
       });
+
       set({ authUser: user, isLoggingIn: false, socket });
-      set({ authUser: data.user, isLoggingIn: false });
       return user;
     } catch (err) {
-      set({ isLoggingIn: false });
-      const errorMsg =
-        err.response?.data?.message ||
-        err.message ||
-        "Login failed";
-      toast.error(errorMsg);
       console.error("Login error:", err);
+      toast.error(err.response?.data?.message || "Login failed");
+      set({ isLoggingIn: false });
       throw err;
     }
   },
+
   signup: async (formData) => {
     set({ isSigningUp: true });
+
     try {
-      const res = await axios.post(
-        "/api/auth/signup",
-        formData,
-        { withCredentials: true }
-      );
-      set({ authUser: res.data.user, isSigningUp: false });
-      return res.data.user;
+      const res = await axios.post("/api/auth/signup", formData, {
+        withCredentials: true,
+      });
+
+      const user = res.data?.user;
+      if (!user) throw new Error("Signup failed");
+
+      set({ authUser: user, isSigningUp: false });
+      return user;
     } catch (err) {
+      toast.error(err.response?.data?.message || "Signup failed");
       set({ isSigningUp: false });
-      const errorMsg =
-        err.response?.data?.message ||
-        err.message ||
-        "Signup failed";
-      toast.error(errorMsg);
       throw err;
     }
   },
+
   checkAuth: async () => {
     set({ isCheckingAuth: true });
+
     try {
-      const res = await axios.get("/api/auth/check", { withCredentials: true });
-      set({ authUser: res.data.user, isCheckingAuth: false });
-      return res.data.user;
+      const token = localStorage.getItem("token");
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+
+      const res = await axios.get("/api/auth/check", config);
+
+      const user = res.data;
+      set({ authUser: user, isCheckingAuth: false });
+
+      return user;
     } catch (err) {
       set({ authUser: null, isCheckingAuth: false });
       return null;
     }
   },
+
   updateProfile: async ({ profilePic }) => {
     set({ isUpdatingProfile: true });
+
     try {
       const res = await axios.put(
         "/api/auth/update-profile",
         { profilePic },
         { withCredentials: true }
       );
+
       set({ authUser: res.data, isUpdatingProfile: false });
-      toast.success("Profile updated!");
+      toast.success("Profile updated");
       return res.data;
     } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
       set({ isUpdatingProfile: false });
-      toast.error(err.response?.data?.message || "Failed to update profile");
       throw err;
     }
   },
-  logout: async () => {
-    await axios.post("/api/auth/logout", {}, { withCredentials: true });
 
-    set({ authUser: null });
-    localStorage.removeItem("token");
+  logout: async () => {
+    try {
+      await axios.post("/api/auth/logout", {}, { withCredentials: true });
+
+      set({ authUser: null, socket: null });
+      localStorage.removeItem("token");
+    } catch (err) {
+      toast.error("Logout failed");
+      throw err;
+    }
   },
-  // ...other actions
-}));
-export const useOnlineUsersStore = create((set) => ({
-  onlineUsers: [],
-  setOnlineUsers: (users) => set({ onlineUsers: users }),
-  addOnlineUser: (user) => set((state) => ({
-    onlineUsers: [...state.onlineUsers, user]
-  })),
-  removeOnlineUser: (userId) => set((state) => ({
-    onlineUsers: state.onlineUsers.filter(user => user._id !== userId)
-  }))
 }));
