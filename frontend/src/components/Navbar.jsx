@@ -3,8 +3,17 @@ import { useAuthStore } from "../store/useAuthStore";
 import { LogOut, MessageSquare, Settings, User } from "lucide-react";
 
 const Navbar = () => {
-  const { logout, authUser } = useAuthStore();
+  const { authUser, logout } = useAuthStore();
+  const navigate = useNavigate();
 
+  const handleLogout = async () => {
+    try {
+      await logout();           // Clear user in store
+      navigate("/login");       // 👈 Redirect manually after logout
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  };
   return (
     <header
       className="bg-base-100 border-b border-base-300 fixed w-full top-0 z-40 
@@ -40,7 +49,7 @@ const Navbar = () => {
                   <span className="hidden sm:inline">Profile</span>
                 </Link>
 
-                <button className="flex gap-2 items-center" onClick={logout}>
+                <button className="flex gap-2 items-center" onClick={handleLogout}>
                   <LogOut className="size-5" />
                   <span className="hidden sm:inline">Logout</span>
                 </button>
