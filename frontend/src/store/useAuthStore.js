@@ -30,6 +30,7 @@ export const useAuthStore = create((set) => ({
         query: { userId: user._id },
       });
       set({ authUser: user, isLoggingIn: false, socket });
+      set({ authUser: data.user, isLoggingIn: false });
       return user;
     } catch (err) {
       set({ isLoggingIn: false });
@@ -89,6 +90,12 @@ export const useAuthStore = create((set) => ({
       toast.error(err.response?.data?.message || "Failed to update profile");
       throw err;
     }
+  },
+  logout: async () => {
+    await axios.post("/api/auth/logout", {}, { withCredentials: true });
+
+    set({ authUser: null });
+    localStorage.removeItem("token");
   },
   // ...other actions
 }));
