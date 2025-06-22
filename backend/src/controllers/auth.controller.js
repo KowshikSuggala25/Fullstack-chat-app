@@ -51,7 +51,6 @@ export const signup = async (req, res) => {
 };
 
 import jwt from "jsonwebtoken";
-import User from "../models/user.model.js";
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
