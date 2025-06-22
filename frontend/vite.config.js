@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   build: {
+    target: "esnext",
     outDir: 'dist', // Explicitly define build output folder
     chunkSizeWarningLimit: 1500,
     emptyOutDir: true,
