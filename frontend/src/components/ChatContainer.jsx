@@ -19,30 +19,24 @@ const ChatContainer = () => {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
+  // ✅ Fixed useEffect for fetching + subscribing
   useEffect(() => {
+    if (!selectedUser?._id) return;
+
     getMessages(selectedUser._id);
-
-  subscribeToMessages: () => {
-    const { socket } = useAuthStore.getState();
-    if (!socket) return;
-
-    socket.on("newMessage", (message) => {
-      set((state) => ({
-        messages: [...state.messages, message],
-      }));
-    });
-  },
-
+    subscribeToMessages();
 
     return () => unsubscribeFromMessages();
-  }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
+  }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
+  // ✅ Auto-scroll to bottom
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    if (messageEndRef.current && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // ✅ Loading skeleton
   if (isMessagesLoading) {
     return (
       <div className="flex-1 flex flex-col overflow-auto">
@@ -53,6 +47,7 @@ const ChatContainer = () => {
     );
   }
 
+  // ✅ Main render
   return (
     <div className="flex-1 flex flex-col overflow-auto">
       <ChatHeader />
@@ -61,10 +56,12 @@ const ChatContainer = () => {
         {messages.map((message) => (
           <div
             key={message._id}
-            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
+            className={`chat ${
+              message.senderId === authUser._id ? "chat-end" : "chat-start"
+            }`}
             ref={messageEndRef}
           >
-            <div className=" chat-image avatar">
+            <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
                 <img
                   src={
@@ -99,4 +96,5 @@ const ChatContainer = () => {
     </div>
   );
 };
+
 export default ChatContainer;
