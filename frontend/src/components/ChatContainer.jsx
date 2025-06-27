@@ -22,7 +22,17 @@ const ChatContainer = () => {
   useEffect(() => {
     getMessages(selectedUser._id);
 
-    subscribeToMessages();
+  subscribeToMessages: () => {
+    const { socket } = useAuthStore.getState();
+    if (!socket) return;
+
+    socket.on("newMessage", (message) => {
+      set((state) => ({
+        messages: [...state.messages, message],
+      }));
+    });
+  },
+
 
     return () => unsubscribeFromMessages();
   }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
