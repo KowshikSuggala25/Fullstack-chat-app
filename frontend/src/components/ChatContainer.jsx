@@ -9,19 +9,20 @@ import { formatMessageTime } from "../lib/utils";
 
 const ChatContainer = () => {
   const {
-    messages,
+    messages = [],             // ✅ Default value
     getMessages,
     isMessagesLoading,
     selectedUser,
     subscribeToMessages,
     unsubscribeFromMessages,
   } = useChatStore();
+
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
-  // ✅ Fixed useEffect for fetching + subscribing
+  // ✅ Fetch messages and subscribe only if selectedUser is valid
   useEffect(() => {
-    if (!selectedUser?._id) return;
+    if (!selectedUser || !selectedUser._id) return;
 
     getMessages(selectedUser._id);
     subscribeToMessages();
@@ -29,14 +30,14 @@ const ChatContainer = () => {
     return () => unsubscribeFromMessages();
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
-  // ✅ Auto-scroll to bottom
+  // ✅ Auto-scroll to latest message
   useEffect(() => {
-    if (messageEndRef.current && messages.length > 0) {
+    if (messageEndRef.current && Array.isArray(messages) && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // ✅ Loading skeleton
+  // ✅ Loading state
   if (isMessagesLoading) {
     return (
       <div className="flex-1 flex flex-col overflow-auto">
@@ -47,13 +48,25 @@ const ChatContainer = () => {
     );
   }
 
+  // ✅ Don't try to render if selectedUser or authUser is missing
+  if (!selectedUser || !authUser) {
+    return (
+      <div className="flex-1 flex flex-col overflow-auto">
+        <ChatHeader />
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          Please select a user to start chatting.
+        </div>
+      </div>
+    );
+  }
+
   // ✅ Main render
   return (
     <div className="flex-1 flex flex-col overflow-auto">
       <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
+        {(Array.isArray(messages) ? messages : []).map((message) => (
           <div
             key={message._id}
             className={`chat ${
