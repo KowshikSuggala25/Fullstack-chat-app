@@ -21,7 +21,10 @@ app.use(express.json({ limit: "20mb" }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://fullstack-chat-app-pb32.onrender.com"
+    ],
     credentials: true,
   })
 );
