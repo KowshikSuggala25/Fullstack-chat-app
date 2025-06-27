@@ -18,7 +18,6 @@ export const useChatStore = create((set, get) => ({
       return res.data;
     } catch (err) {
       if (err.response && err.response.status === 401) {
-        // Handle unauthorized (e.g., redirect to login or show a message)
         console.warn("Unauthorized: Please log in again.");
       } else {
         console.error("Failed to fetch users:", err);
@@ -35,45 +34,67 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to fetch messages");
     } finally {
       set({ isMessagesLoading: false });
     }
   },
+
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
+    const { authUser, socket } = useAuthStore.getState();
+    if (!selectedUser || !authUser) {
+      toast.error("No user selected or not logged in");
+      return;
+    }
+
     try {
+      // 1️⃣ Save to DB
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
-      set({ messages: [...messages, res.data] });
+      const savedMessage = res.data;
+      set({ messages: [...messages, savedMessage] });
+
+      // 2️⃣ Emit via Socket for Real-Time
+      if (socket) {
+        socket.emit("sendMessage", {
+          receiverId: selectedUser._id,
+          text: savedMessage.text,
+          image: savedMessage.image,
+          sender: {
+            _id: authUser._id,
+            profilePic: authUser.profilePic,
+            name: authUser.name,
+          },
+        });
+      }
     } catch (error) {
-      toast.error(error.response.data.message);
+      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
 
   subscribeToMessages: () => {
-    const { selectedUser } = get();
-    if (!selectedUser) return;
-
     const socket = useAuthStore.getState().socket;
     if (!socket) {
-      // Defensive: don't subscribe if socket is not ready
       console.warn("Socket not initialized, cannot subscribe to messages.");
       return;
     }
 
     socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
-      if (!isMessageSentFromSelectedUser) return;
+      const { selectedUser, messages } = get();
+      if (!selectedUser) return;
 
-      set({
-        messages: [...get().messages, newMessage],
-      });
+      // Match on newMessage.sender._id
+      const isFromSelectedUser = newMessage.sender?._id === selectedUser._id;
+      if (!isFromSelectedUser) return;
+
+      set({ messages: [...messages, newMessage] });
     });
   },
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
-    if (!socket) return; // Defensive: don't unsubscribe if socket is not ready
+    if (!socket) return;
     socket.off("newMessage");
   },
 
