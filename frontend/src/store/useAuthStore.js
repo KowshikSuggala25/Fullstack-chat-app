@@ -67,21 +67,22 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  signup: async (formData) => {
-    set({ isSigningUp: true });
-    try {
-      const res = await axios.post("/api/auth/signup", formData, {
-        withCredentials: true,
-      });
-      set({ authUser: res.data.user, isSigningUp: false });
-      return res.data.user;
-    } catch (err) {
-      set({ isSigningUp: false });
-      const errorMsg = err.response?.data?.message || err.message || "Signup failed";
-      toast.error(errorMsg);
-      throw err;
-    }
-  },
+signup: async (formData) => {
+  set({ isSigningUp: true });
+  try {
+    await axios.post("/api/auth/signup", formData, {
+      withCredentials: true,
+    });
+
+    toast.success("Signup successful! Please log in.");
+    set({ isSigningUp: false });
+  } catch (err) {
+    set({ isSigningUp: false });
+    const errorMsg = err.response?.data?.message || err.message || "Signup failed";
+    toast.error(errorMsg);
+    throw err;
+  }
+},
 
   checkAuth: async () => {
     set({ isCheckingAuth: true });
