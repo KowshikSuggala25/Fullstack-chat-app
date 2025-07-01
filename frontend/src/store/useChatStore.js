@@ -95,6 +95,9 @@ export const useChatStore = create((set, get) => ({
         m._id === messageId ? updatedMessage : m
       )
     }));
+    
+    // Optionally, always refresh after delete
+    await get().getMessages(get().selectedUser?._id);
   },
 
   // 🔹 Listen for incoming messages from socket
