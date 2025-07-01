@@ -29,7 +29,7 @@ export const getMessages = async (req, res) => {
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
-    }).sort({ createdAt: 1 }); // Optional: sort oldest -> newest
+    }).sort({ createdAt: 1 });
 
     res.status(200).json(messages);
   } catch (error) {
@@ -38,7 +38,7 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ✅ Send a message
+// ✅ Send a message (supports text + image)
 export const sendMessage = async (req, res) => {
   try {
     const { text, image } = req.body;
@@ -46,7 +46,9 @@ export const sendMessage = async (req, res) => {
     const senderId = req.user._id;
 
     let imageUrl = null;
+
     if (image) {
+      // Upload base64 image to Cloudinary
       const uploadResponse = await cloudinary.uploader.upload(image);
       imageUrl = uploadResponse.secure_url;
     }
@@ -57,9 +59,10 @@ export const sendMessage = async (req, res) => {
       text,
       image: imageUrl,
     });
+
     await newMessage.save();
 
-    // ✅ Notify the receiver in real-time
+    // Notify receiver in real-time
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
