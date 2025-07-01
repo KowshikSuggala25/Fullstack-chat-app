@@ -78,7 +78,7 @@ const MessageInput = () => {
       <form onSubmit={handleSendMessage} className="flex items-center gap-2 relative">
         {showEmojiPicker && (
           <div className="absolute bottom-14 left-0 z-10">
-            <Picker onSelect={handleEmojiSelect} />
+            <Picker data={data} onEmojiSelect={handleEmojiSelect} />
           </div>
         )}
 
