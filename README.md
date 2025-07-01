@@ -10,7 +10,9 @@ Highlights:
 - 🐞 Error handling both on the server and on the client
 - ⭐ At the end Deployment like a pro for FREE!
 - ⏳ And much more!
-
+<br>
+<p>You can try the live version of this project
+<a href = "https://fullstack-chat-app-pb32.onrender.com/login/" alt = " Fullstack-Chat-Application ">Fullstack Chat Application</a> It demonstrates all the core features described above.</p><br>
 ### Setup .env file
 
 ```js
