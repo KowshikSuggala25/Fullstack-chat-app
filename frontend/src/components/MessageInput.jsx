@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { Image, Send, Smile, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { Picker } from 'emoji-mart';
-import 'emoji-mart/css/emoji-mart.css';
+import Picker from '@emoji-mart/react';
+import data from '@emoji-mart/data';
+
 
 const MessageInput = () => {
   const [text, setText] = useState("");
