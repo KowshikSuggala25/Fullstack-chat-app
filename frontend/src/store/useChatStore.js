@@ -85,6 +85,13 @@ export const useChatStore = create((set, get) => ({
       toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
+  // Delete messages
+  deleteMessage: async (messageId) => {
+    await axios.delete(`/api/messages/${messageId}`);
+    set((state) => ({
+      messages: state.messages.filter((m) => m._id !== messageId)
+    }));
+  },
 
   // 🔹 Listen for incoming messages from socket
   subscribeToMessages: () => {
