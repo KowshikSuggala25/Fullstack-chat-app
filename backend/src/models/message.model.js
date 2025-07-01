@@ -12,9 +12,15 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    text: String,
-    image: String,
-    video: String,
+    text: {
+      type: String,
+    },
+    image: {
+      type: String,
+    },
+    video: {
+      type: String,
+    },
     deleted: {
       type: Boolean,
       default: false,
