@@ -30,6 +30,7 @@ app.use(
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+router.delete("/messages/:id", protect, deleteMessage);
 
 // Serve frontend in production
 if (process.env.NODE_ENV === "production") {
