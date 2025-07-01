@@ -46,11 +46,18 @@ export const sendMessage = async (req, res) => {
     const senderId = req.user._id;
 
     let imageUrl = null;
-
+    let videoUrl = null;
+    
     if (image) {
-      // Upload base64 image to Cloudinary
       const uploadResponse = await cloudinary.uploader.upload(image);
       imageUrl = uploadResponse.secure_url;
+    }
+    
+    if (video) {
+      const uploadResponse = await cloudinary.uploader.upload(video, {
+        resource_type: "video",
+      });
+      videoUrl = uploadResponse.secure_url;
     }
 
     const newMessage = new Message({
@@ -58,6 +65,7 @@ export const sendMessage = async (req, res) => {
       receiverId,
       text,
       image: imageUrl,
+      video: videoUrl,
     });
 
     await newMessage.save();
