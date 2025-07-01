@@ -77,12 +77,15 @@ const ChatContainer = () => {
             </div>
             <div className="chat-bubble flex flex-col">
               {message.image && (
-                <img
-                  src={message.image}
-                  alt="Attachment"
-                  className="sm:max-w-[200px] rounded-md mb-2"
-                />
+                <a href={message.image} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={message.image}
+                    alt="Attachment"
+                      className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                  />
+                </a>
               )}
+
               {message.text && <p>{message.text}</p>}
             </div>
           </div>
