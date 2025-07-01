@@ -41,7 +41,7 @@ export const getMessages = async (req, res) => {
 // ✅ Send a message (supports text + image)
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image } = req.body;
+    const { text, image, video } = req.body;
     const receiverId = req.params.id;
     const senderId = req.user._id;
 
