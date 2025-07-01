@@ -5,7 +5,7 @@ import {
   sendMessage
 } from "../controllers/message.controller.js";
 import { protectRoute } from "../middleware/protectRoute.js";
-import { deleteMessage } from "../controllers/messageController.js";
+import { deleteMessage } from "../controllers/message.controller.js";
 
 const router = express.Router();
 
