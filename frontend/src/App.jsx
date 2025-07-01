@@ -13,6 +13,8 @@ import { useEffect } from "react";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
+import 'emoji-mart/css/emoji-mart.css';
+
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth, onlineUsers, logout } = useAuthStore();
   const { theme } = useThemeStore();
