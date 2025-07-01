@@ -38,7 +38,7 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ✅ Send a message (supports text + image)
+// ✅ Send a message (supports text + image + video)
 export const sendMessage = async (req, res) => {
   try {
     const { text, image, video } = req.body;
@@ -47,12 +47,12 @@ export const sendMessage = async (req, res) => {
 
     let imageUrl = null;
     let videoUrl = null;
-    
+
     if (image) {
       const uploadResponse = await cloudinary.uploader.upload(image);
       imageUrl = uploadResponse.secure_url;
     }
-    
+
     if (video) {
       const uploadResponse = await cloudinary.uploader.upload(video, {
         resource_type: "video",
@@ -83,22 +83,36 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-// ✅ Delete a message
+// ✅ Soft delete a message (mark as deleted)
 export const deleteMessage = async (req, res) => {
   try {
     const messageId = req.params.id;
     const userId = req.user._id;
 
     const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ error: "Message not found" });
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
 
     // Only sender can delete
     if (String(message.senderId) !== String(userId)) {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    await message.deleteOne();
-    res.status(200).json({ message: "Deleted successfully" });
+    // Soft delete: mark as deleted and clear contents
+    message.deleted = true;
+    message.text = "";
+    message.image = "";
+    message.video = "";
+    await message.save();
+
+    // Notify receiver in real-time
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", message);
+    }
+
+    res.status(200).json(message);
   } catch (error) {
     console.error("Error in deleteMessage:", error);
     res.status(500).json({ error: "Internal server error" });
