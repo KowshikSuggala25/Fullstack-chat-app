@@ -90,27 +90,25 @@ export const deleteMessage = async (req, res) => {
     const userId = req.user._id;
 
     const message = await Message.findById(messageId);
+
     if (!message) {
-      return res.status(404).json({ error: "Message not found" });
+      console.log("No message found with id:", messageId);
+      return res.status(200).json({ deleted: true });
     }
 
-    // Only sender can delete
     if (String(message.senderId) !== String(userId)) {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    // Soft delete: mark as deleted and clear contents
-    message.deleted = true;
-    message.text = "";
-    message.image = "";
-    message.video = "";
-    await message.save();
-
-    // Notify receiver in real-time
-    const receiverSocketId = getReceiverSocketId(message.receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("messageDeleted", message);
+    if (message.deleted) {
+      return res.status(200).json(message);
     }
+
+    message.text = null;
+    message.image = null;
+    message.video = null;
+    message.deleted = true;
+    await message.save();
 
     res.status(200).json(message);
   } catch (error) {
