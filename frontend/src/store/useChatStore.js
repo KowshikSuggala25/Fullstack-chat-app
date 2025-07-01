@@ -87,9 +87,13 @@ export const useChatStore = create((set, get) => ({
   },
   // Delete messages
   deleteMessage: async (messageId) => {
-    await axios.delete(`/api/messages/${messageId}`);
+    const res = await axiosInstance.delete(`/messages/${messageId}`);
+    const updatedMessage = res.data;
+  
     set((state) => ({
-      messages: state.messages.filter((m) => m._id !== messageId)
+      messages: state.messages.map((m) =>
+        m._id === messageId ? updatedMessage : m
+      )
     }));
   },
 
