@@ -110,6 +110,18 @@ export const deleteMessage = async (req, res) => {
     message.deleted = true;
     await message.save();
 
+    // ✅ Notify receiver in real-time
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", { messageId });
+    }
+
+    // ✅ Also notify the deleter's own socket (optional but recommended)
+    const senderSocketId = getReceiverSocketId(userId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("messageDeleted", { messageId });
+    }
+    
     res.status(200).json(message);
   } catch (error) {
     console.error("Error in deleteMessage:", error);
