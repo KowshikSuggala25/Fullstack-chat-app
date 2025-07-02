@@ -7,7 +7,6 @@ import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { formatMessageTime } from "../lib/utils";
 import { Download, Trash } from "lucide-react";
 import toast from "react-hot-toast";
-import { socket } from "../socket"; // ✅ Make sure this path matches your project
 
 const ChatContainer = () => {
   const {
@@ -23,7 +22,7 @@ const ChatContainer = () => {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
-  // ✅ Fetch messages when selectedUser changes
+  // ✅ Fetch messages and subscribe on selectedUser change
   useEffect(() => {
     if (!selectedUser?._id) return;
 
@@ -53,28 +52,6 @@ const ChatContainer = () => {
       toast.error("Failed to delete message");
     }
   };
-
-  // ✅ Real-time delete socket listener
-  useEffect(() => {
-    const handleMessageDeleted = ({ messageId }) => {
-      console.log("Received messageDeleted event:", messageId);
-
-      // Update the store to mark this message as deleted
-      useChatStore.setState((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === messageId
-            ? { ...msg, deleted: true, text: null, image: null, video: null }
-            : msg
-        ),
-      }));
-    };
-
-    socket.on("messageDeleted", handleMessageDeleted);
-
-    return () => {
-      socket.off("messageDeleted", handleMessageDeleted);
-    };
-  }, []);
 
   // ✅ Loading state
   if (isMessagesLoading) {
