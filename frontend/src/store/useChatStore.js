@@ -18,12 +18,8 @@ export const useChatStore = create((set, get) => ({
       const res = await axios.get("/api/messages/users", { withCredentials: true });
       set({ users: res.data });
     } catch (err) {
-      if (err.response?.status === 401) {
-        console.warn("Unauthorized: Please log in again.");
-      } else {
-        console.error("Failed to fetch users:", err);
-      }
       toast.error("Failed to fetch users");
+      console.error("Fetch users error:", err);
     } finally {
       set({ isUsersLoading: false });
     }
@@ -31,37 +27,30 @@ export const useChatStore = create((set, get) => ({
 
   // 🔹 Fetch messages for a conversation
   getMessages: async (userId) => {
-    if (!userId) {
-      toast.error("No user selected");
-      return;
-    }
-
+    if (!userId) return toast.error("No user selected");
     set({ isMessagesLoading: true });
+
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to fetch messages");
+      toast.error("Failed to fetch messages");
+      console.error("Get messages error:", error);
     } finally {
       set({ isMessagesLoading: false });
     }
   },
 
-  // 🔹 Send message (API + emit to socket)
+  // 🔹 Send message
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
     const { authUser, socket } = useAuthStore.getState();
 
-    if (!selectedUser || !authUser) {
-      toast.error("No user selected or not logged in");
-      return;
-    }
+    if (!selectedUser || !authUser) return toast.error("No user selected");
 
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
       const savedMessage = res.data;
-
       set({ messages: [...messages, savedMessage] });
 
       if (socket) {
@@ -78,66 +67,56 @@ export const useChatStore = create((set, get) => ({
         });
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to send message");
+      toast.error("Failed to send message");
+      console.error("Send message error:", error);
     }
   },
 
-  // 🔹 Delete a message (API call)
+  // 🔹 Delete message (and refresh or update)
   deleteMessage: async (messageId) => {
     try {
       const res = await axiosInstance.delete(`/messages/${messageId}`);
       const updatedMessage = res.data;
 
-      // Locally mark as deleted
       set((state) => ({
         messages: state.messages.map((m) =>
           m._id === messageId ? updatedMessage : m
-        )
+        ),
       }));
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to delete message");
+      toast.error("Failed to delete message");
+      console.error("Delete message error:", error);
     }
   },
 
-  // 🔹 Listen for *new* and *deleted* messages via socket
+  // 🔹 Subscribe to socket events
   subscribeToMessages: () => {
     const socket = useAuthStore.getState().socket;
-    if (!socket) {
-      console.warn("Socket not initialized, cannot subscribe to messages.");
-      return;
-    }
+    if (!socket) return;
 
-    // New messages
+    // ✅ New incoming message
     socket.on("newMessage", (newMessage) => {
       const { selectedUser, messages } = get();
-      if (!selectedUser) return;
-
-      const isFromSelectedUser = newMessage.sender?._id === selectedUser._id;
-      if (!isFromSelectedUser) return;
-
+      if (newMessage.sender?._id !== selectedUser?._id) return;
       set({ messages: [...messages, newMessage] });
     });
 
-    // Deleted messages
+    // ✅ Deleted message event
     socket.on("messageDeleted", ({ messageId }) => {
-      console.log("Received messageDeleted:", messageId);
       set((state) => ({
         messages: state.messages.map((m) =>
           m._id === messageId
             ? { ...m, deleted: true, text: null, image: null, video: null }
             : m
-        )
+        ),
       }));
     });
   },
 
-  // 🔹 Unsubscribe from socket events
+  // 🔹 Unsubscribe
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
-
     socket.off("newMessage");
     socket.off("messageDeleted");
   },
