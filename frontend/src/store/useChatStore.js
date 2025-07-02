@@ -59,14 +59,11 @@ export const useChatStore = create((set, get) => ({
     }
 
     try {
-      // 1️⃣ Store in DB
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
       const savedMessage = res.data;
 
-      // 2️⃣ Add to local store immediately
       set({ messages: [...messages, savedMessage] });
 
-      // 3️⃣ Notify other user via socket
       if (socket) {
         socket.emit("sendMessage", {
           receiverId: selectedUser._id,
@@ -85,22 +82,26 @@ export const useChatStore = create((set, get) => ({
       toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
-  // Delete messages
+
+  // 🔹 Delete a message (API call)
   deleteMessage: async (messageId) => {
-    const res = await axiosInstance.delete(`/messages/${messageId}`);
-    const updatedMessage = res.data;
-  
-    set((state) => ({
-      messages: state.messages.map((m) =>
-        m._id === messageId ? updatedMessage : m
-      )
-    }));
-    
-    // Optionally, always refresh after delete
-    await get().getMessages(get().selectedUser?._id);
+    try {
+      const res = await axiosInstance.delete(`/messages/${messageId}`);
+      const updatedMessage = res.data;
+
+      // Locally mark as deleted
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m._id === messageId ? updatedMessage : m
+        )
+      }));
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to delete message");
+    }
   },
 
-  // 🔹 Listen for incoming messages from socket
+  // 🔹 Listen for *new* and *deleted* messages via socket
   subscribeToMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) {
@@ -108,6 +109,7 @@ export const useChatStore = create((set, get) => ({
       return;
     }
 
+    // New messages
     socket.on("newMessage", (newMessage) => {
       const { selectedUser, messages } = get();
       if (!selectedUser) return;
@@ -117,13 +119,27 @@ export const useChatStore = create((set, get) => ({
 
       set({ messages: [...messages, newMessage] });
     });
+
+    // Deleted messages
+    socket.on("messageDeleted", ({ messageId }) => {
+      console.log("Received messageDeleted:", messageId);
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m._id === messageId
+            ? { ...m, deleted: true, text: null, image: null, video: null }
+            : m
+        )
+      }));
+    });
   },
 
   // 🔹 Unsubscribe from socket events
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
+
     socket.off("newMessage");
+    socket.off("messageDeleted");
   },
 
   // 🔹 Change selected user
