@@ -1,12 +1,13 @@
 import { useChatStore } from "../store/useChatStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useEffect, useRef } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
-import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
 import { Download, Trash } from "lucide-react";
 import toast from "react-hot-toast";
+import { socket } from "../socket"; // ✅ Make sure this path matches your project
 
 const ChatContainer = () => {
   const {
@@ -22,6 +23,7 @@ const ChatContainer = () => {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
+  // ✅ Fetch messages when selectedUser changes
   useEffect(() => {
     if (!selectedUser?._id) return;
 
@@ -31,12 +33,14 @@ const ChatContainer = () => {
     return () => unsubscribeFromMessages();
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
+  // ✅ Scroll to bottom on new messages
   useEffect(() => {
     if (messageEndRef.current && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // ✅ Handle delete button click
   const handleDeleteMessage = async (messageId) => {
     const confirmed = window.confirm("Are you sure you want to delete this message?");
     if (!confirmed) return;
@@ -50,6 +54,29 @@ const ChatContainer = () => {
     }
   };
 
+  // ✅ Real-time delete socket listener
+  useEffect(() => {
+    const handleMessageDeleted = ({ messageId }) => {
+      console.log("Received messageDeleted event:", messageId);
+
+      // Update the store to mark this message as deleted
+      useChatStore.setState((state) => ({
+        messages: state.messages.map((msg) =>
+          msg._id === messageId
+            ? { ...msg, deleted: true, text: null, image: null, video: null }
+            : msg
+        ),
+      }));
+    };
+
+    socket.on("messageDeleted", handleMessageDeleted);
+
+    return () => {
+      socket.off("messageDeleted", handleMessageDeleted);
+    };
+  }, []);
+
+  // ✅ Loading state
   if (isMessagesLoading) {
     return (
       <div className="flex-1 flex flex-col overflow-auto">
@@ -60,6 +87,7 @@ const ChatContainer = () => {
     );
   }
 
+  // ✅ Main render
   return (
     <div className="flex-1 flex flex-col overflow-auto">
       <ChatHeader />
