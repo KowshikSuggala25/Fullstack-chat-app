@@ -80,6 +80,7 @@ export const sendMessage = async (req, res) => {
 };
 
 // ✅ Soft delete a message (mark as deleted)
+// ✅ Soft delete a message (mark as deleted)
 export const deleteMessage = async (req, res) => {
   try {
     const messageId = req.params.id;
@@ -105,15 +106,14 @@ export const deleteMessage = async (req, res) => {
     message.deleted = true;
     await message.save();
 
-    // ✅ Emit event to receiver for real-time delete sync
+    // ✅ Emit to *both* users
     const receiverSocketId = getReceiverSocketId(message.receiverId);
-    const senderSocketId = getReceiverSocketId(message.senderId); // Optional
+    const senderSocketId = getReceiverSocketId(message.senderId);
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("messageDeleted", { messageId });
     }
-
-    if (senderSocketId && senderSocketId !== receiverSocketId) {
+    if (senderSocketId) {
       io.to(senderSocketId).emit("messageDeleted", { messageId });
     }
 
@@ -123,3 +123,4 @@ export const deleteMessage = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
