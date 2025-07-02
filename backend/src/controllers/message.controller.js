@@ -7,10 +7,7 @@ import { getReceiverSocketId, io } from "../lib/socket.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-
-    const users = await User.find({ _id: { $ne: loggedInUserId } })
-      .select("-password");
-
+    const users = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
     res.status(200).json(users);
   } catch (error) {
     console.error("Error in getUsersForSidebar:", error);
@@ -70,7 +67,6 @@ export const sendMessage = async (req, res) => {
 
     await newMessage.save();
 
-    // Notify receiver in real-time
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
@@ -92,7 +88,6 @@ export const deleteMessage = async (req, res) => {
     const message = await Message.findById(messageId);
 
     if (!message) {
-      console.log("No message found with id:", messageId);
       return res.status(200).json({ deleted: true });
     }
 
@@ -110,10 +105,16 @@ export const deleteMessage = async (req, res) => {
     message.deleted = true;
     await message.save();
 
-    // ✅ NEW: Notify receiver about the deletion
+    // ✅ Emit event to receiver for real-time delete sync
     const receiverSocketId = getReceiverSocketId(message.receiverId);
+    const senderSocketId = getReceiverSocketId(message.senderId); // Optional
+
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("messageDeleted", { messageId });
+    }
+
+    if (senderSocketId && senderSocketId !== receiverSocketId) {
+      io.to(senderSocketId).emit("messageDeleted", { messageId });
     }
 
     res.status(200).json(message);
