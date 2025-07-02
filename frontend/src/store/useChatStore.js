@@ -73,21 +73,23 @@ export const useChatStore = create((set, get) => ({
   },
 
   // 🔹 Delete message (and refresh or update)
-  deleteMessage: async (messageId) => {
-    try {
-      const res = await axiosInstance.delete(`/messages/${messageId}`);
-      const updatedMessage = res.data;
+deleteMessage: async (messageId) => {
+  // Optimistic update first
+  set((state) => ({
+    messages: state.messages.map((m) =>
+      m._id === messageId
+        ? { ...m, deleted: true, text: null, image: null, video: null }
+        : m
+    ),
+  }));
 
-      set((state) => ({
-        messages: state.messages.map((m) =>
-          m._id === messageId ? updatedMessage : m
-        ),
-      }));
-    } catch (error) {
-      toast.error("Failed to delete message");
-      console.error("Delete message error:", error);
-    }
-  },
+  try {
+    await axiosInstance.delete(`/messages/${messageId}`);
+  } catch (error) {
+    toast.error("Failed to delete message");
+    console.error("Delete message error:", error);
+  }
+},
 
   // 🔹 Subscribe to socket events
   subscribeToMessages: () => {
