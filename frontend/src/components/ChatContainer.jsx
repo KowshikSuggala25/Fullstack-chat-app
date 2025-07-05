@@ -56,7 +56,7 @@ const ChatContainer = () => {
   // ✅ Loading state
   if (isMessagesLoading) {
     return (
-      <div className="flex-1 flex flex-col overflow-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <ChatHeader />
         <MessageSkeleton />
         <MessageInput />
@@ -66,14 +66,14 @@ const ChatContainer = () => {
 
   // ✅ Main render
   return (
-    <div className="flex-1 flex flex-col overflow-auto">
+    <div className="flex-1 flex flex-col overflow-hidden">
       <ChatHeader />
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-w-full">
         {Array.isArray(messages) && messages.map((message) => (
           <div
             key={message._id}
-            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
+            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"} max-w-full break-words`}
             ref={messageEndRef}
           >
             <div className="chat-image avatar">
@@ -83,11 +83,12 @@ const ChatContainer = () => {
                     ? authUser.profilePic || "/avatar.png"
                     : selectedUser.profilePic || "/avatar.png"}
                   alt="profile pic"
+                  className="max-w-full"
                 />
               </div>
             </div>
 
-            <div className="chat-header mb-1 flex items-center justify-between">
+            <div className="chat-header mb-1 flex items-center justify-between max-w-full">
               <time className="text-xs opacity-50 ml-1">
                 {formatMessageTime(message.createdAt)}
               </time>
@@ -103,18 +104,18 @@ const ChatContainer = () => {
               )}
             </div>
 
-            <div className="chat-bubble flex flex-col relative">
+            <div className="chat-bubble flex flex-col relative max-w-full break-words">
               {message.deleted ? (
                 <p className="italic text-zinc-400">This message was deleted.</p>
               ) : (
                 <>
                   {message.image && (
-                    <div className="relative">
+                    <div className="relative max-w-full">
                       <a href={message.image} target="_blank" rel="noopener noreferrer">
                         <img
                           src={message.image}
                           alt="Attachment"
-                          className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                          className="max-w-full sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
                         />
                       </a>
                       <a
@@ -129,11 +130,11 @@ const ChatContainer = () => {
                   )}
 
                   {message.video && (
-                    <div className="relative">
+                    <div className="relative max-w-full">
                       <video
                         controls
                         src={message.video}
-                        className="sm:max-w-[200px] rounded-md mb-2"
+                        className="max-w-full sm:max-w-[200px] rounded-md mb-2"
                       />
                       <a
                         href={message.video}
@@ -146,7 +147,7 @@ const ChatContainer = () => {
                     </div>
                   )}
 
-                  {message.text && <p>{message.text}</p>}
+                  {message.text && <p className="max-w-full break-words">{message.text}</p>}
                 </>
               )}
             </div>
