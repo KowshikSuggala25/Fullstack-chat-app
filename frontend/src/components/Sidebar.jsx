@@ -5,13 +5,13 @@ import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users, ChevronLeft, ChevronRight } from "lucide-react";
 
 const Sidebar = () => {
-  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } = useChatStore();
+  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading, setIsSidebarOpen } = useChatStore();
   const { onlineUsers } = useAuthStore();
 
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
 
-  // Set initial state based on screen size
+  // Set initial open state based on screen size
   useEffect(() => {
     if (window.innerWidth < 1024) {
       setIsOpen(false);
@@ -33,13 +33,13 @@ const Sidebar = () => {
   return (
     <aside
       className={`
-        h-full border-r border-base-300 flex flex-col
+        h-full flex flex-col border-r border-base-300
         transition-all duration-300
         ${isOpen ? "w-64" : "w-20"}
       `}
     >
-      {/* Header with toggle button */}
-      <div className="border-b border-base-300 w-full p-3 flex items-center justify-between">
+      {/* Header */}
+      <div className="shrink-0 border-b border-base-300 p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="size-6" />
           {isOpen && <span className="font-medium">Contacts</span>}
@@ -53,9 +53,9 @@ const Sidebar = () => {
         </button>
       </div>
 
-      {/* Online filter toggle */}
+      {/* Online filter */}
       {isOpen && (
-        <div className="mt-3 px-3 flex items-center gap-2 border-b border-base-300 pb-3">
+        <div className="shrink-0 border-b border-base-300 px-3 py-2 flex items-center gap-2">
           <label className="cursor-pointer flex items-center gap-2">
             <input
               type="checkbox"
@@ -70,11 +70,14 @@ const Sidebar = () => {
       )}
 
       {/* User list */}
-      <div className="overflow-y-auto flex-1 py-3">
+      <div className="flex-1 overflow-y-auto py-3">
         {filteredUsers.map((user) => (
           <button
             key={user._id}
-            onClick={() => setSelectedUser(user)}
+            onClick={() => {
+              setSelectedUser(user);
+              setIsSidebarOpen(false);
+            }}
             className={`
               w-full p-3 flex items-center gap-3
               hover:bg-base-300 transition-colors
@@ -101,6 +104,7 @@ const Sidebar = () => {
             )}
           </button>
         ))}
+
         {filteredUsers.length === 0 && (
           <div className="text-center text-zinc-500 py-4">No online users</div>
         )}
