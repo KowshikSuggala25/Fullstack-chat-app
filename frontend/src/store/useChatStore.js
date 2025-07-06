@@ -11,6 +11,10 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
 
+  // 🔹 Sidebar open/close state (for responsive layout)
+  isSidebarOpen: true,
+  setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
+
   // 🔹 Fetch user list
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -72,24 +76,24 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // 🔹 Delete message (and refresh or update)
-deleteMessage: async (messageId) => {
-  // Optimistic update first
-  set((state) => ({
-    messages: state.messages.map((m) =>
-      m._id === messageId
-        ? { ...m, deleted: true, text: null, image: null, video: null }
-        : m
-    ),
-  }));
+  // 🔹 Delete message
+  deleteMessage: async (messageId) => {
+    // Optimistic update first
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m._id === messageId
+          ? { ...m, deleted: true, text: null, image: null, video: null }
+          : m
+      ),
+    }));
 
-  try {
-    await axiosInstance.delete(`/messages/${messageId}`);
-  } catch (error) {
-    toast.error("Failed to delete message");
-    console.error("Delete message error:", error);
-  }
-},
+    try {
+      await axiosInstance.delete(`/messages/${messageId}`);
+    } catch (error) {
+      toast.error("Failed to delete message");
+      console.error("Delete message error:", error);
+    }
+  },
 
   // 🔹 Subscribe to socket events
   subscribeToMessages: () => {
@@ -115,7 +119,7 @@ deleteMessage: async (messageId) => {
     });
   },
 
-  // 🔹 Unsubscribe
+  // 🔹 Unsubscribe from socket
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
