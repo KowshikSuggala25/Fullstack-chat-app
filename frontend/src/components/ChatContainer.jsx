@@ -1,9 +1,9 @@
 import { useChatStore } from "../store/useChatStore";
-import { useAuthStore } from "../store/useAuthStore";
 import { useEffect, useRef } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
+import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
 import { Download, Trash } from "lucide-react";
 import toast from "react-hot-toast";
@@ -22,7 +22,6 @@ const ChatContainer = () => {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
-  // Fetch messages and subscribe on selectedUser change
   useEffect(() => {
     if (!selectedUser?._id) return;
 
@@ -32,14 +31,12 @@ const ChatContainer = () => {
     return () => unsubscribeFromMessages();
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     if (messageEndRef.current && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Handle delete button click
   const handleDeleteMessage = async (messageId) => {
     const confirmed = window.confirm("Are you sure you want to delete this message?");
     if (!confirmed) return;
@@ -53,30 +50,26 @@ const ChatContainer = () => {
     }
   };
 
-  // Loading skeleton
   if (isMessagesLoading) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-auto">
         <ChatHeader />
-        <div className="flex-1 overflow-y-auto">
-          <MessageSkeleton />
-        </div>
+        <MessageSkeleton />
         <MessageInput />
       </div>
     );
   }
 
-  // Main render
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-auto">
       <ChatHeader />
 
-      {/* Scrollable messages */}
-      <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {Array.isArray(messages) && messages.map((message) => (
           <div
             key={message._id}
             className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
+            ref={messageEndRef}
           >
             <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
@@ -105,7 +98,7 @@ const ChatContainer = () => {
               )}
             </div>
 
-            <div className="chat-bubble flex flex-col relative max-w-full break-words">
+            <div className="chat-bubble flex flex-col relative">
               {message.deleted ? (
                 <p className="italic text-zinc-400">This message was deleted.</p>
               ) : (
@@ -116,7 +109,7 @@ const ChatContainer = () => {
                         <img
                           src={message.image}
                           alt="Attachment"
-                          className="max-w-xs rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                          className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
                         />
                       </a>
                       <a
@@ -135,7 +128,7 @@ const ChatContainer = () => {
                       <video
                         controls
                         src={message.video}
-                        className="max-w-xs rounded-md mb-2"
+                        className="sm:max-w-[200px] rounded-md mb-2"
                       />
                       <a
                         href={message.video}
@@ -154,11 +147,8 @@ const ChatContainer = () => {
             </div>
           </div>
         ))}
-
-        <div ref={messageEndRef} />
       </div>
 
-      {/* Fixed message input */}
       <MessageInput />
     </div>
   );
