@@ -5,10 +5,10 @@ import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { formatMessageTime } from "../lib/utils";
-import { Download, Trash, X } from "lucide-react";
+import { Download, Trash } from "lucide-react";
 import toast from "react-hot-toast";
 
-const ChatContainer = ({ onClose }) => {
+const ChatContainer = () => {
   const {
     messages = [],
     getMessages,
@@ -22,22 +22,28 @@ const ChatContainer = ({ onClose }) => {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
+  // ✅ Fetch messages and subscribe on selectedUser change
   useEffect(() => {
     if (!selectedUser?._id) return;
+
     getMessages(selectedUser._id);
     subscribeToMessages();
+
     return () => unsubscribeFromMessages();
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
+  // ✅ Scroll to bottom on new messages
   useEffect(() => {
     if (messageEndRef.current && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // ✅ Handle delete button click
   const handleDeleteMessage = async (messageId) => {
     const confirmed = window.confirm("Are you sure you want to delete this message?");
     if (!confirmed) return;
+
     try {
       await deleteMessage(messageId);
       toast.success("Message deleted");
@@ -47,9 +53,10 @@ const ChatContainer = ({ onClose }) => {
     }
   };
 
+  // ✅ Loading state
   if (isMessagesLoading) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <ChatHeader />
         <MessageSkeleton />
         <MessageInput />
@@ -57,21 +64,10 @@ const ChatContainer = ({ onClose }) => {
     );
   }
 
+  // ✅ Main render
   return (
-    <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
-      <div className="flex items-center justify-between border-b border-base-300 p-4">
-        <ChatHeader />
-        {/* Close button on mobile */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="lg:hidden p-2 rounded hover:bg-base-200 transition"
-            title="Close Chat"
-          >
-            <X size={20} />
-          </button>
-        )}
-      </div>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <ChatHeader />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-w-full">
         {Array.isArray(messages) && messages.map((message) => (
@@ -96,6 +92,7 @@ const ChatContainer = ({ onClose }) => {
               <time className="text-xs opacity-50 ml-1">
                 {formatMessageTime(message.createdAt)}
               </time>
+
               {message.senderId === authUser._id && !message.deleted && (
                 <button
                   onClick={() => handleDeleteMessage(message._id)}
