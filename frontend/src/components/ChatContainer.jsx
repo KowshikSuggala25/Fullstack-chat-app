@@ -22,7 +22,7 @@ const ChatContainer = () => {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
-  // ✅ Fetch messages and subscribe on selectedUser change
+  // Fetch messages and subscribe on selectedUser change
   useEffect(() => {
     if (!selectedUser?._id) return;
 
@@ -32,14 +32,14 @@ const ChatContainer = () => {
     return () => unsubscribeFromMessages();
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
-  // ✅ Scroll to bottom on new messages
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (messageEndRef.current && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // ✅ Handle delete button click
+  // Handle delete button click
   const handleDeleteMessage = async (messageId) => {
     const confirmed = window.confirm("Are you sure you want to delete this message?");
     if (!confirmed) return;
@@ -53,28 +53,30 @@ const ChatContainer = () => {
     }
   };
 
-  // ✅ Loading state
+  // Loading skeleton
   if (isMessagesLoading) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <ChatHeader />
-        <MessageSkeleton />
+        <div className="flex-1 overflow-y-auto">
+          <MessageSkeleton />
+        </div>
         <MessageInput />
       </div>
     );
   }
 
-  // ✅ Main render
+  // Main render
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <ChatHeader />
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-w-full">
+      {/* Scrollable messages */}
+      <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-4">
         {Array.isArray(messages) && messages.map((message) => (
           <div
             key={message._id}
-            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"} max-w-full break-words`}
-            ref={messageEndRef}
+            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
           >
             <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
@@ -83,12 +85,11 @@ const ChatContainer = () => {
                     ? authUser.profilePic || "/avatar.png"
                     : selectedUser.profilePic || "/avatar.png"}
                   alt="profile pic"
-                  className="max-w-full"
                 />
               </div>
             </div>
 
-            <div className="chat-header mb-1 flex items-center justify-between max-w-full">
+            <div className="chat-header mb-1 flex items-center justify-between">
               <time className="text-xs opacity-50 ml-1">
                 {formatMessageTime(message.createdAt)}
               </time>
@@ -110,12 +111,12 @@ const ChatContainer = () => {
               ) : (
                 <>
                   {message.image && (
-                    <div className="relative max-w-full">
+                    <div className="relative">
                       <a href={message.image} target="_blank" rel="noopener noreferrer">
                         <img
                           src={message.image}
                           alt="Attachment"
-                          className="max-w-full sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                          className="max-w-xs rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
                         />
                       </a>
                       <a
@@ -130,11 +131,11 @@ const ChatContainer = () => {
                   )}
 
                   {message.video && (
-                    <div className="relative max-w-full">
+                    <div className="relative">
                       <video
                         controls
                         src={message.video}
-                        className="max-w-full sm:max-w-[200px] rounded-md mb-2"
+                        className="max-w-xs rounded-md mb-2"
                       />
                       <a
                         href={message.video}
@@ -147,14 +148,17 @@ const ChatContainer = () => {
                     </div>
                   )}
 
-                  {message.text && <p className="max-w-full break-words">{message.text}</p>}
+                  {message.text && <p>{message.text}</p>}
                 </>
               )}
             </div>
           </div>
         ))}
+
+        <div ref={messageEndRef} />
       </div>
 
+      {/* Fixed message input */}
       <MessageInput />
     </div>
   );
