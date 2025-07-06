@@ -5,7 +5,15 @@ import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users, ChevronLeft, ChevronRight } from "lucide-react";
 
 const Sidebar = () => {
-  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading, setIsSidebarOpen } = useChatStore();
+  const {
+    getUsers,
+    users,
+    selectedUser,
+    setSelectedUser,
+    isUsersLoading,
+    setIsSidebarOpen,
+  } = useChatStore();
+
   const { onlineUsers } = useAuthStore();
 
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
@@ -35,7 +43,7 @@ const Sidebar = () => {
       className={`
         h-full flex flex-col border-r border-base-300
         transition-all duration-300
-        ${isOpen ? "w-64" : "w-20"}
+        ${isOpen ? "w-64 sm:w-72" : "w-20"}
       `}
     >
       {/* Header */}
@@ -55,7 +63,7 @@ const Sidebar = () => {
 
       {/* Online filter */}
       {isOpen && (
-        <div className="shrink-0 border-b border-base-300 px-3 py-2 flex items-center gap-2">
+        <div className="shrink-0 border-b border-base-300 px-4 py-2 flex items-center gap-2">
           <label className="cursor-pointer flex items-center gap-2">
             <input
               type="checkbox"
@@ -65,7 +73,9 @@ const Sidebar = () => {
             />
             <span className="text-sm">Show online only</span>
           </label>
-          <span className="text-xs text-zinc-500">({onlineUsers.length - 1} online)</span>
+          <span className="text-xs text-zinc-500">
+            ({onlineUsers.length - 1} online)
+          </span>
         </div>
       )}
 
@@ -79,19 +89,22 @@ const Sidebar = () => {
               setIsSidebarOpen(false);
             }}
             className={`
-              w-full p-3 flex items-center gap-3
+              w-full px-4 py-3 flex items-center gap-3
               hover:bg-base-300 transition-colors
               ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
             `}
           >
-            <div className="relative mx-auto lg:mx-0">
+            <div className="relative">
               <img
                 src={user.profilePic || "/avatar.png"}
                 alt={user.name}
                 className="size-12 object-cover rounded-full"
               />
               {onlineUsers.includes(user._id) && (
-                <span className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full ring-2 ring-zinc-900" />
+                <span
+                  className="absolute bottom-0 right-0 size-3 bg-green-500 
+                  rounded-full ring-2 ring-zinc-900"
+                />
               )}
             </div>
             {isOpen && (
@@ -106,7 +119,9 @@ const Sidebar = () => {
         ))}
 
         {filteredUsers.length === 0 && (
-          <div className="text-center text-zinc-500 py-4">No online users</div>
+          <div className="text-center text-zinc-500 py-4">
+            No online users
+          </div>
         )}
       </div>
     </aside>
