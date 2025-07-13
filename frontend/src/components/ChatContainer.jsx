@@ -1,11 +1,11 @@
 import { useChatStore } from "../store/useChatStore";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { Download, Trash } from "lucide-react";
+import { Download, Trash, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ChatContainer = () => {
@@ -21,6 +21,8 @@ const ChatContainer = () => {
 
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
+  const [showInfo, setShowInfo] = useState(false);
+  const [infoUser, setInfoUser] = useState(null);
 
   useEffect(() => {
     if (!selectedUser?._id) return;
@@ -72,7 +74,14 @@ const ChatContainer = () => {
             ref={messageEndRef}
           >
             <div className="chat-image avatar">
-              <div className="size-10 rounded-full border">
+              <div
+                className="size-10 rounded-full border cursor-pointer transition hover:scale-105"
+                title="View user info"
+                onClick={() => {
+                  setInfoUser(message.senderId === authUser._id ? authUser : selectedUser);
+                  setShowInfo(true);
+                }}
+              >
                 <img
                   src={message.senderId === authUser._id
                     ? authUser.profilePic || "/avatar.png"
@@ -90,10 +99,14 @@ const ChatContainer = () => {
               {message.senderId === authUser._id && !message.deleted && (
                 <button
                   onClick={() => handleDeleteMessage(message._id)}
-                  className="ml-2 text-red-500 hover:text-red-700"
+                  className="ml-2 p-1 rounded-full
+                    bg-white/30 backdrop-blur-md shadow-lg
+                    hover:bg-red-500/60 hover:scale-110 transition-all duration-300
+                    border border-white/40
+                    text-red-500"
                   title="Delete message"
                 >
-                  <Trash size={16} />
+                  <Trash size={18} />
                 </button>
               )}
             </div>
@@ -115,10 +128,13 @@ const ChatContainer = () => {
                       <a
                         href={message.image}
                         download
-                        className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-black/80 transition"
+                        className="absolute top-1 right-1 p-1 rounded-full
+                          bg-white/30 backdrop-blur-md shadow-lg
+                          hover:bg-white/60 hover:scale-110 transition-all duration-300
+                          border border-white/40 text-primary"
                         title="Download image"
                       >
-                        <Download size={16} />
+                        <Download size={18} />
                       </a>
                     </div>
                   )}
@@ -128,12 +144,15 @@ const ChatContainer = () => {
                       <video
                         controls
                         src={message.video}
-                        className="sm:max-w-[200px] rounded-md mb-2"
+                        className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
                       />
                       <a
                         href={message.video}
                         download
-                        className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-black/80 transition"
+                        className="absolute top-1 right-1 p-1 rounded-full
+                          bg-white/30 backdrop-blur-md shadow-lg
+                          hover:bg-white/60 hover:scale-110 transition-all duration-300
+                          border border-white/40 text-primary"
                         title="Download video"
                       >
                         <Download size={16} />
@@ -148,6 +167,34 @@ const ChatContainer = () => {
           </div>
         ))}
       </div>
+
+      {/* User Info Modal */}
+      {showInfo && infoUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white/80 backdrop-blur-xl rounded-xl p-6 shadow-2xl border border-white/40 min-w-[300px] relative">
+            <button
+              className="absolute top-2 right-2 p-2 rounded-full
+                bg-white/30 backdrop-blur-md shadow-lg
+                hover:bg-red-500/60 hover:scale-110 transition-all duration-300
+                border border-white/40 text-zinc-700"
+              onClick={() => setShowInfo(false)}
+              title="Close"
+            >
+              <X />
+            </button>
+            <div className="flex flex-col items-center gap-3">
+              <img
+                src={infoUser.profilePic || "/avatar.png"}
+                alt={infoUser.fullName}
+                className="size-16 rounded-full border"
+              />
+              <h2 className="font-bold text-lg">{infoUser.fullName}</h2>
+              <p className="text-sm text-zinc-500">{infoUser.email}</p>
+              {/* Add more info if needed */}
+            </div>
+          </div>
+        </div>
+      )}
 
       <MessageInput />
     </div>

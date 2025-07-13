@@ -1,9 +1,28 @@
-import { Server } from "socket.io";
-import http from "http";
 import express from "express";
+import http from "http";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import { Server } from "socket.io";
 
-const app = express();
-const server = http.createServer(app);
+export const app = express();
+export const server = http.createServer(app);
+
+// Apply middleware
+app.use(express.json({ limit: "20mb" }));
+app.use(cookieParser());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://fullstack-chat-app-pb32.onrender.com"
+  ],
+  credentials: true,
+}));
+
+// Socket.io
+const userSocketMap = {};
+export function getReceiverSocketId(userId) {
+  return userSocketMap[userId];
+}
 
 const io = new Server(server, {
   cors: {
@@ -11,16 +30,9 @@ const io = new Server(server, {
       "http://localhost:5173",
       "https://fullstack-chat-app-pb32.onrender.com"
     ],
+    credentials: true,
   },
 });
-
-
-export function getReceiverSocketId(userId) {
-  return userSocketMap[userId];
-}
-
-// used to store online users
-const userSocketMap = {}; // {userId: socketId}
 
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
@@ -49,5 +61,4 @@ io.on("connection", (socket) => {
   });
 });
 
-
-export { io, app, server };
+export { io };

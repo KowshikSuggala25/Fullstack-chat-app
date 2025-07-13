@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 const Sidebar = () => {
   const {
@@ -18,6 +18,7 @@ const Sidebar = () => {
 
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Set initial open state based on screen size
   useEffect(() => {
@@ -32,9 +33,14 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
-  const filteredUsers = showOnlineOnly
-    ? users.filter((user) => onlineUsers.includes(user._id))
-    : users;
+  // Fuzzy search filter
+  const filteredUsers = users.filter((user) => {
+    const isOnline = showOnlineOnly ? onlineUsers.includes(user._id) : true;
+    const matchesSearch =
+      user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    return isOnline && matchesSearch;
+  });
 
   if (isUsersLoading) return <SidebarSkeleton />;
 
@@ -54,12 +60,38 @@ const Sidebar = () => {
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-1 rounded hover:bg-base-200 transition"
+          className="p-1 rounded transition
+            hover:bg-white/30 hover:backdrop-blur-md hover:shadow-lg
+            hover:scale-110 hover:border hover:border-white/40"
           title={isOpen ? "Collapse" : "Expand"}
         >
           {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
         </button>
       </div>
+
+      {/* Fuzzy Search Bar */}
+      {isOpen && (
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-base-300 relative">
+          <Search className="size-4 text-zinc-400" />
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input input-sm w-full pr-8"
+          />
+          {searchTerm && (
+            <button
+              className="absolute right-6 text-zinc-400 hover:text-red-500 text-lg"
+              onClick={() => setSearchTerm("")}
+              aria-label="Clear search"
+              tabIndex={0}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Online filter */}
       {isOpen && (
@@ -80,7 +112,7 @@ const Sidebar = () => {
       )}
 
       {/* User list */}
-      <div className="flex-1 overflow-y-auto py-3">
+      <div className="flex-1 overflow-y-auto py-3" id="user-list-scroll">
         {filteredUsers.map((user) => (
           <button
             key={user._id}
@@ -90,25 +122,30 @@ const Sidebar = () => {
             }}
             className={`
               w-full px-4 py-3 flex items-center gap-3
-              hover:bg-base-300 transition-colors
-              ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
+              transition-all duration-300 ease-in-out
+              hover:bg-primary/10 hover:scale-[1.03] hover:shadow-lg
+              ${selectedUser?._id === user._id
+                ? "bg-primary/20 ring-2 ring-primary scale-[1.04] shadow-xl"
+                : ""}
+              rounded-xl
+              group
             `}
+            style={{ outline: "none" }}
           >
             <div className="relative">
               <img
                 src={user.profilePic || "/avatar.png"}
                 alt={user.name}
-                className="size-12 object-cover rounded-full"
+                className="size-12 object-cover rounded-full transition-all duration-300 group-hover:ring-2 group-hover:ring-primary"
               />
               {onlineUsers.includes(user._id) && (
                 <span
-                  className="absolute bottom-0 right-0 size-3 bg-green-500 
-                  rounded-full ring-2 ring-zinc-900"
+                  className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full ring-2 ring-zinc-900"
                 />
               )}
             </div>
             {isOpen && (
-              <div className="text-left min-w-0">
+              <div className="text-left min-w-0 transition-all duration-300 group-hover:text-primary">
                 <div className="font-medium truncate">{user.fullName}</div>
                 <div className="text-sm text-zinc-400">
                   {onlineUsers.includes(user._id) ? "Online" : "Offline"}
@@ -120,9 +157,25 @@ const Sidebar = () => {
 
         {filteredUsers.length === 0 && (
           <div className="text-center text-zinc-500 py-4">
-            No online users
+            No users found
           </div>
         )}
+
+        {/* Top button */}
+        <button
+          className="w-10 h-10 flex items-center justify-center mx-auto mt-4 mb-2
+            rounded-full bg-white/30 backdrop-blur-md shadow-lg border border-white/40
+            hover:bg-primary/30 hover:scale-110 transition-all duration-300"
+          title="Scroll to top"
+          onClick={() => {
+            const list = document.getElementById("user-list-scroll");
+            if (list) list.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
       </div>
     </aside>
   );

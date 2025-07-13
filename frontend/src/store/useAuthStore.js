@@ -3,13 +3,12 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 import { io } from "socket.io-client";
 
-// Helper to choose correct backend URL
+// Helper for choosing backend URL
 const getSocketBaseUrl = () => {
   if (import.meta.env.PROD) {
-    return "/"; // same origin on Render
-  } else {
-    return "http://localhost:5000";
+    return "https://fullstack-chat-app-pb32.onrender.com"; // relative path on Render
   }
+  return "http://localhost:5000";
 };
 
 export const useAuthStore = create((set, get) => ({
@@ -21,16 +20,14 @@ export const useAuthStore = create((set, get) => ({
   socket: null,
   onlineUsers: [],
 
+  // Login handler
   login: async (formData) => {
     set({ isLoggingIn: true });
-
-    if (!formData?.email || !formData?.password) {
-      set({ isLoggingIn: false });
-      toast.error("Email and password are required");
-      return;
-    }
-
     try {
+      if (!formData?.email || !formData?.password) {
+        throw new Error("Email and password are required");
+      }
+
       const res = await axios.post("/api/auth/login", formData, {
         withCredentials: true,
       });
@@ -40,60 +37,70 @@ export const useAuthStore = create((set, get) => ({
         throw new Error("Invalid user data received from server");
       }
 
-      // Initialize socket connection
+      // Create socket connection
       const socket = io(getSocketBaseUrl(), {
         query: { userId: user._id },
         withCredentials: true,
+        transports: ["websocket"],
       });
 
-      // Listen for online users broadcast
+      socket.on("connect_error", (err) => {
+        console.error("Socket connection error:", err);
+        toast.error("WebSocket connection failed: " + err.message);
+      });
+
       socket.on("getOnlineUsers", (users) => {
         set({ onlineUsers: users });
       });
 
-      // Example: Listen for newMessage event (for chat)
       socket.on("newMessage", (message) => {
-        // Optionally you can store messages here
         console.log("Received newMessage", message);
+        // Optionally handle message here
       });
 
       set({ authUser: user, isLoggingIn: false, socket });
       return user;
     } catch (err) {
       set({ isLoggingIn: false });
-      const errorMsg = err.response?.data?.message || err.message || "Login failed";
-      toast.error(errorMsg);
+      toast.error(err?.response?.data?.message || err.message || "Login failed");
       throw err;
     }
   },
 
-signup: async (formData) => {
-  set({ isSigningUp: true });
-  try {
-    await axios.post("/api/auth/signup", formData, {
-      withCredentials: true,
-    });
+  // Signup handler
+  signup: async (formData) => {
+    set({ isSigningUp: true });
+    try {
+      await axios.post("/api/auth/signup", formData, {
+        withCredentials: true,
+      });
+      toast.success("Signup successful! Please log in.");
+      set({ isSigningUp: false });
+    } catch (err) {
+      set({ isSigningUp: false });
+      toast.error(err?.response?.data?.message || err.message || "Signup failed");
+      throw err;
+    }
+  },
 
-    toast.success("Signup successful! Please log in.");
-    set({ isSigningUp: false });
-  } catch (err) {
-    set({ isSigningUp: false });
-    const errorMsg = err.response?.data?.message || err.message || "Signup failed";
-    toast.error(errorMsg);
-    throw err;
-  }
-},
-
+  // Check existing auth
   checkAuth: async () => {
     set({ isCheckingAuth: true });
     try {
       const res = await axios.get("/api/auth/check", { withCredentials: true });
-      const user = res.data.user;
+      const user = res.data?.user;
+
       if (user && user._id) {
-        // Reconnect socket if user already logged in
+        // Reconnect socket
         const socket = io(getSocketBaseUrl(), {
           query: { userId: user._id },
           withCredentials: true,
+          transports: ["websocket"],
+        });
+
+        socket.on("connect_error", (err) => {
+          console.error("Socket connection error:", err);
+          toast.error("WebSocket connection failed: " + err.message);
         });
 
         socket.on("getOnlineUsers", (users) => {
@@ -115,6 +122,7 @@ signup: async (formData) => {
     }
   },
 
+  // Profile update
   updateProfile: async ({ profilePic }) => {
     set({ isUpdatingProfile: true });
     try {
@@ -128,20 +136,21 @@ signup: async (formData) => {
       return res.data;
     } catch (err) {
       set({ isUpdatingProfile: false });
-      toast.error(err.response?.data?.message || "Failed to update profile");
+      toast.error(err?.response?.data?.message || "Failed to update profile");
       throw err;
     }
   },
 
+  // Logout
   logout: async () => {
     try {
       await axios.post("/api/auth/logout", {}, { withCredentials: true });
     } catch (err) {
       console.error("Logout error", err);
     }
+
     const socket = get().socket;
     socket?.disconnect();
     set({ authUser: null, socket: null, onlineUsers: [] });
   },
 }));
-

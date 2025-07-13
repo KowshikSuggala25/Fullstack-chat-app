@@ -103,8 +103,11 @@ const MessageInput = () => {
 
         <button
           type="button"
-          className="btn btn-circle btn-sm text-zinc-400"
+          className="p-2 rounded-full bg-white/30 backdrop-blur-md shadow-lg
+            hover:bg-white/60 hover:scale-110 transition-all duration-300
+            border border-white/40 text-primary"
           onClick={() => setShowEmojiPicker(prev => !prev)}
+          title="Emoji"
         >
           <Smile size={20} />
         </button>
@@ -130,7 +133,7 @@ const MessageInput = () => {
             type="button"
             className={`hidden sm:flex btn btn-circle ${imagePreview || videoPreview ? "text-emerald-500" : "text-zinc-400"}`}
             onClick={() => fileInputRef.current?.click()}
-            title="Attach Image or Video"
+            title="Attach media"
           >
             <Image size={20} />
           </button>
@@ -138,8 +141,11 @@ const MessageInput = () => {
 
         <button
           type="submit"
-          className="btn btn-sm btn-circle"
+          className="p-2 rounded-full bg-primary/70 backdrop-blur-md shadow-lg
+            hover:bg-primary hover:scale-110 transition-all duration-300
+            border border-white/40 text-white"
           disabled={!text.trim() && !imagePreview && !videoPreview}
+          title="Send"
         >
           <Send size={22} />
         </button>
