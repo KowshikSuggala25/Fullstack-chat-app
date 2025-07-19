@@ -1,4 +1,4 @@
-import axiosInstance from "axiosInstance";
+import axios from "axios";
 
 export const axiosInstance = axios.create({
   baseURL:
