@@ -37,28 +37,36 @@ const App = () => {
   };
 
   return (
-    <div data-theme={theme}>
-      <Navbar />
-      {/* Add logout button if user is authenticated */}
-      {authUser && (
-        <div className="flex justify-end p-4">
-          <button
-            className="btn btn-error"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </div>
-      )}
+    // Main App container: Takes full viewport height and arranges content vertically
+    <div data-theme={theme} className="flex flex-col h-screen overflow-hidden"> {/* Added flex flex-col h-screen overflow-hidden */}
+      {/* Header Section: Navbar + Logout Button */}
+      {/* This section takes its natural height (shrink-0) */}
+      <div className="flex-shrink-0">
+        <Navbar />
+        {authUser && (
+          <div className="flex justify-end p-4 bg-base-100"> {/* Added bg-base-100 to ensure background */}
+            <button
+              className="btn btn-error"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
 
-      <Routes>
-        <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />
-        <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
-        <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
-        <Route path="/profile/:userId" element={<ProfilePage />} />
-      </Routes>
+      {/* Main Content Area: Takes all remaining vertical space and is scrollable if needed */}
+      {/* This is where your HomePage (and other pages) will live */}
+      <div className="flex-1 overflow-y-auto"> {/* flex-1 to take remaining height, overflow-y-auto for content */}
+        <Routes>
+          <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />
+          <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
+          <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
+        </Routes>
+      </div>
 
       <Toaster />
     </div>

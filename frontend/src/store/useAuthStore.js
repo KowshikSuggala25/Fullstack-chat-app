@@ -6,10 +6,12 @@ import { io } from "socket.io-client";
 // Helper for choosing backend URL
 const getSocketBaseUrl = () => {
   if (import.meta.env.PROD) {
-    return "https://fullstack-chat-app-pb32.onrender.com"; // relative path on Render
+    return "https://fullstack-chat-app-pb32.onrender.com";
   }
   return "http://localhost:5000";
 };
+
+const API_BASE_URL = "http://localhost:5000/api";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -28,7 +30,7 @@ export const useAuthStore = create((set, get) => ({
         throw new Error("Email and password are required");
       }
 
-      const res = await axios.post("/api/auth/login", formData, {
+      const res = await axios.post(`${API_BASE_URL}/auth/login`, formData, {
         withCredentials: true,
       });
       const user = res.data?.user;
@@ -37,7 +39,6 @@ export const useAuthStore = create((set, get) => ({
         throw new Error("Invalid user data received from server");
       }
 
-      // Create socket connection
       const socket = io(getSocketBaseUrl(), {
         query: { userId: user._id },
         withCredentials: true,
@@ -55,7 +56,6 @@ export const useAuthStore = create((set, get) => ({
 
       socket.on("newMessage", (message) => {
         console.log("Received newMessage", message);
-        // Optionally handle message here
       });
 
       set({ authUser: user, isLoggingIn: false, socket });
@@ -71,7 +71,7 @@ export const useAuthStore = create((set, get) => ({
   signup: async (formData) => {
     set({ isSigningUp: true });
     try {
-      await axios.post("/api/auth/signup", formData, {
+      await axios.post(`${API_BASE_URL}/auth/signup`, formData, {
         withCredentials: true,
       });
       toast.success("Signup successful! Please log in.");
@@ -87,11 +87,10 @@ export const useAuthStore = create((set, get) => ({
   checkAuth: async () => {
     set({ isCheckingAuth: true });
     try {
-      const res = await axios.get("/api/auth/check", { withCredentials: true });
+      const res = await axios.get(`${API_BASE_URL}/auth/check`, { withCredentials: true });
       const user = res.data?.user;
 
       if (user && user._id) {
-        // Reconnect socket
         const socket = io(getSocketBaseUrl(), {
           query: { userId: user._id },
           withCredentials: true,
@@ -123,20 +122,38 @@ export const useAuthStore = create((set, get) => ({
   },
 
   // Profile update
-  updateProfile: async ({ profilePic }) => {
+  updateProfile: async (fields) => {
     set({ isUpdatingProfile: true });
     try {
+      // Clean input: remove empty/whitespace-only values
+      const cleanedFields = {};
+      for (const key in fields) {
+        if (
+          fields[key] !== undefined &&
+          fields[key] !== null &&
+          (typeof fields[key] !== "string" || fields[key].trim() !== "")
+        ) {
+          cleanedFields[key] = typeof fields[key] === "string" ? fields[key].trim() : fields[key];
+        }
+      }
+
+      if (Object.keys(cleanedFields).length === 0) {
+        throw new Error("No fields provided to update");
+      }
+
       const res = await axios.put(
-        "/api/auth/update-profile",
-        { profilePic },
+        `${API_BASE_URL}/auth/update-profile`,
+        cleanedFields,
         { withCredentials: true }
       );
+
       set({ authUser: res.data, isUpdatingProfile: false });
       toast.success("Profile updated!");
       return res.data;
     } catch (err) {
       set({ isUpdatingProfile: false });
-      toast.error(err?.response?.data?.message || "Failed to update profile");
+      const msg = err?.response?.data?.message || err.message || "Failed to update profile";
+      toast.error(msg);
       throw err;
     }
   },
@@ -144,7 +161,7 @@ export const useAuthStore = create((set, get) => ({
   // Logout
   logout: async () => {
     try {
-      await axios.post("/api/auth/logout", {}, { withCredentials: true });
+      await axios.post(`${API_BASE_URL}/auth/logout`, {}, { withCredentials: true });
     } catch (err) {
       console.error("Logout error", err);
     }
