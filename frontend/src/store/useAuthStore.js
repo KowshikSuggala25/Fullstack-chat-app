@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "react-hot-toast";
 import { io } from "socket.io-client";
-import { axios } from "../lib/axios";
+import { axiosInstance } from "../lib/axiosInstance";
 
 const getSocketBaseUrl = () => {
   if (import.meta.env.MODE === "development") {
