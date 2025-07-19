@@ -1,52 +1,49 @@
 import express from "express";
 import { app, server } from "./lib/socket.js";
 import dotenv from "dotenv";
-import cookieParser from "cookie-parser"; // Keep this one
-import cors from "cors"; // Keep this one
+import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-// Removed duplicate: import cors from "cors";
-// Removed duplicate: import cookieParser from "cookie-parser";
 
 import { connectDB } from "./lib/db.js";
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
+import { protectRoute } from "./middleware/protectRoute.js"; // ✅ Import protect middleware
 
-console.log('Server process started. Loading config...'); 
 dotenv.config();
 const PORT = process.env.PORT || 5000;
-console.log(`Attempting to start server on PORT: ${PORT}`);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Middleware
-console.log('Applying body parsers...');
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(cookieParser());
-console.log('Body parsers and cookieParser applied.');
 
+// CORS setup
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://fullstack-chat-app-pb32.onrender.com'],
-    credentials: true,
+  origin: ['http://localhost:5173', 'https://fullstack-chat-app-pb32.onrender.com'],
+  credentials: true,
 }));
-console.log('CORS applied.');
 
-// Mount your routes
-console.log('Mounting routes...');
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
-console.log('Routes mounted.');
 
+// ✅ Example protected route to verify JWT usage
+app.get("/api/protected", protectRoute, (req, res) => {
+  res.json({ message: `Hello ${req.user.username}, you are authorized.` });
+});
+
+// Serve frontend in production
 if (process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, "../../frontend/dist")));
-    app.get("*", (req, res) => {
-        res.sendFile(path.join(__dirname, "../../frontend/dist/index.html"));
-    });
+  app.use(express.static(path.join(__dirname, "../../frontend/dist")));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../../frontend/dist/index.html"));
+  });
 }
 
-
+// Start server
 server.listen(PORT, () => {
-    console.log(`Server is running on PORT:${PORT}`);
-    connectDB();
+  console.log(`Server is running on PORT: ${PORT}`);
+  connectDB();
 });
