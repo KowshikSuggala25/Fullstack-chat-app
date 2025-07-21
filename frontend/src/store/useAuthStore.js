@@ -11,7 +11,9 @@ const getSocketBaseUrl = () => {
   return "http://localhost:5000";
 };
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = window.location.hostname === "localhost"
+  ? "http://localhost:10000/api"
+  : "/api";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
