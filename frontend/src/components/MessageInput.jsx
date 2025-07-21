@@ -8,10 +8,10 @@ import axios from "axios";
 
 // !! IMPORTANT: Your GIPHY API Key !!
 const GIPHY_API_KEY = "KN8iK1DEZPWMuVguf5tzRtlsvxmJCLly"; // Your provided API Key
-const GIPHY_TRENDING_STICKERS_URL = https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g;
-const GIPHY_SEARCH_STICKERS_URL = https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g;
-const GIPHY_TRENDING_GIFS_URL = https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g;
-const GIPHY_SEARCH_GIFS_URL = https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g;
+const GIPHY_TRENDING_STICKERS_URL = 'https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
+const GIPHY_SEARCH_STICKERS_URL = 'https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
+const GIPHY_TRENDING_GIFS_URL = 'https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
+const GIPHY_SEARCH_GIFS_URL = 'https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
 
 
 const MessageInput = ({ className, selectedUser, getMessages }) => {
