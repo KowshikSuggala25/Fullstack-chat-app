@@ -103,11 +103,12 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                 let url;
                 if (activeMediaType === 'stickers') {
                     url = mediaSearchTerm.trim()
-                        ? ${GIPHY_SEARCH_STICKERS_URL}&q=${encodeURIComponent(mediaSearchTerm)}
+                        ? `${GIPHY_SEARCH_STICKERS_URL}&q=${encodeURIComponent(mediaSearchTerm)}`
                         : GIPHY_TRENDING_STICKERS_URL;
+
                 } else { // activeMediaType === 'gifs'
                     url = mediaSearchTerm.trim()
-                        ? ${GIPHY_SEARCH_GIFS_URL}&q=${encodeURIComponent(mediaSearchTerm)}
+                        ? '${GIPHY_SEARCH_GIFS_URL}&q=${encodeURIComponent(mediaSearchTerm)}'
                         : GIPHY_TRENDING_GIFS_URL;
                 }
                 
