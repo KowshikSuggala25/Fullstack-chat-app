@@ -8,10 +8,10 @@ import axios from "axios";
 
 // !! IMPORTANT: Your GIPHY API Key !!
 const GIPHY_API_KEY = "KN8iK1DEZPWMuVguf5tzRtlsvxmJCLly"; // Your provided API Key
-const GIPHY_TRENDING_STICKERS_URL = 'https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
-const GIPHY_SEARCH_STICKERS_URL = 'https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
-const GIPHY_TRENDING_GIFS_URL = 'https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
-const GIPHY_SEARCH_GIFS_URL = 'https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g';
+const GIPHY_TRENDING_STICKERS_URL = `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
+const GIPHY_SEARCH_STICKERS_URL = `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
+const GIPHY_TRENDING_GIFS_URL = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
+const GIPHY_SEARCH_GIFS_URL = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
 
 
 const MessageInput = ({ className, selectedUser, getMessages }) => {
@@ -105,10 +105,9 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                     url = mediaSearchTerm.trim()
                         ? `${GIPHY_SEARCH_STICKERS_URL}&q=${encodeURIComponent(mediaSearchTerm)}`
                         : GIPHY_TRENDING_STICKERS_URL;
-
                 } else { // activeMediaType === 'gifs'
                     url = mediaSearchTerm.trim()
-                        ? '${GIPHY_SEARCH_GIFS_URL}&q=${encodeURIComponent(mediaSearchTerm)}'
+                        ? `${GIPHY_SEARCH_GIFS_URL}&q=${encodeURIComponent(mediaSearchTerm)}`
                         : GIPHY_TRENDING_GIFS_URL;
                 }
                 
@@ -205,7 +204,7 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
 
         setIsSending(true);
         try {
-            await axios.post(/api/messages/send/${selectedUser._id}, formData, {
+            await axios.post(`/api/messages/send/${selectedUser._id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true,
                 onUploadProgress: (progressEvent) => {
@@ -253,9 +252,9 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
 
     return (
         <div 
-            className={p-2 flex-shrink-0 border-t border-base-200 bg-base-100 relative ${className} 
-                        transition-all duration-300 ease-in-out}
-            style={{ height: (imagePreview || videoPreview) ? calc(${previewHeight} + ${formBaseHeight}) : formBaseHeight }}
+            className={`p-2 flex-shrink-0 border-t border-base-200 bg-base-100 relative ${className} 
+                        transition-all duration-300 ease-in-out`}
+            style={{ height: (imagePreview || videoPreview) ? `calc(${previewHeight} + ${formBaseHeight})` : formBaseHeight }}
         >
             {/* Preview Section */}
             <div 
@@ -356,9 +355,9 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                     />
                     <button
                         type="button"
-                        className={p-2 rounded-full bg-white/30 backdrop-blur-md shadow-lg border border-white/40
+                        className={`p-2 rounded-full bg-white/30 backdrop-blur-md shadow-lg border border-white/40
                                     hover:bg-white/60 hover:scale-110 transition-all duration-300
-                                    ${imagePreview || videoPreview ? "text-emerald-500" : "text-primary"}}
+                                    ${imagePreview || videoPreview ? "text-emerald-500" : "text-primary"}`}
                         onClick={() => {
                             fileInputRef.current?.click();
                             closeAllPickers();
@@ -413,13 +412,13 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                     {/* Tabs for Stickers and GIFs */}
                     <div className="flex gap-2 mb-2 justify-center">
                         <button
-                            className={btn btn-sm rounded-full ${activeMediaType === 'stickers' ? 'btn-primary' : 'btn-ghost'}}
+                            className={`btn btn-sm rounded-full ${activeMediaType === 'stickers' ? 'btn-primary' : 'btn-ghost'}`}
                             onClick={() => { setActiveMediaType('stickers'); setMediaSearchTerm(''); }}
                         >
                             Stickers
                         </button>
                         <button
-                            className={btn btn-sm rounded-full ${activeMediaType === 'gifs' ? 'btn-primary' : 'btn-ghost'}}
+                            className={`btn btn-sm rounded-full ${activeMediaType === 'gifs' ? 'btn-primary' : 'btn-ghost'}`}
                             onClick={() => { setActiveMediaType('gifs'); setMediaSearchTerm(''); }}
                         >
                             GIFs
@@ -430,7 +429,7 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                     <div className="w-full relative mb-2">
                         <input
                             type="text"
-                            placeholder={Search ${activeMediaType}...}
+                            placeholder={`Search ${activeMediaType}...`}
                             className="input input-sm w-full input-bordered rounded-full pr-8"
                             value={mediaSearchTerm}
                             onChange={(e) => setMediaSearchTerm(e.target.value)}
@@ -461,7 +460,7 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                                     >
                                         <img
                                             src={mediaItem.images.fixed_height.url}
-                                            alt={mediaItem.title || Media ${index + 1}}
+                                            alt={mediaItem.title || `Media ${index + 1}`}
                                             className="w-16 h-16 object-contain"
                                         />
                                     </button>
