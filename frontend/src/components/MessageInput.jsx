@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Image as ImageIcon, Mic, Smile, FileVideo } from "lucide-react";
 import EmojiPicker from '@emoji-mart/react';
+import data from '@emoji-mart/data';
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import axios from "axios";
