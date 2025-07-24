@@ -4,6 +4,10 @@ import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
 import axios from "axios";
 
+function generateTempId() {
+  return `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
@@ -11,11 +15,9 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
 
-  // 🔹 Sidebar open/close state (for responsive layout)
   isSidebarOpen: true,
   setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
 
-  // 🔹 Fetch user list
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
@@ -29,11 +31,9 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // 🔹 Fetch messages for a conversation
   getMessages: async (userId) => {
     if (!userId) return toast.error("No user selected");
     set({ isMessagesLoading: true });
-
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
@@ -45,48 +45,58 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // 🔹 Send message
-  sendMessage: async (messageData) => {
+  // Optimistic send message
+  sendMessage: async (messageData, { type = "text", mediaUrl = null, sticker = null, gif = null } = {}) => {
     const { selectedUser, messages } = get();
     const { authUser, socket } = useAuthStore.getState();
-
     if (!selectedUser || !authUser) return toast.error("No user selected");
+
+    // Create a temporary message for instant UI feedback
+    const tempId = generateTempId();
+    const tempMessage = {
+      _id: tempId,
+      senderId: authUser._id,
+      receiverId: selectedUser._id,
+      text: messageData.text || null,
+      image: type === "image" ? mediaUrl : null,
+      video: type === "video" ? mediaUrl : null,
+      sticker: sticker || null,
+      gif: gif || null,
+      createdAt: new Date().toISOString(),
+      deleted: false,
+      reactions: [],
+      sender: {
+        _id: authUser._id,
+        profilePic: authUser.profilePic,
+        name: authUser.name,
+      },
+    };
+    set({ messages: [...messages, tempMessage] });
 
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
       const savedMessage = res.data;
-      set({ messages: [...messages, savedMessage] });
-
-      if (socket) {
-        socket.emit("sendMessage", {
-          receiverId: selectedUser._id,
-          text: savedMessage.text,
-          image: savedMessage.image,
-          createdAt: savedMessage.createdAt,
-          sender: {
-            _id: authUser._id,
-            profilePic: authUser.profilePic,
-            name: authUser.name,
-          },
-        });
-      }
+      set((state) => ({
+        messages: state.messages.map((m) => (m._id === tempId ? savedMessage : m)),
+      }));
     } catch (error) {
+      set((state) => ({
+        messages: state.messages.filter((m) => m._id !== tempId),
+      }));
       toast.error("Failed to send message");
       console.error("Send message error:", error);
     }
   },
 
-  // 🔹 Delete message
+  // Optimistic delete message
   deleteMessage: async (messageId) => {
-    // Optimistic update first
     set((state) => ({
       messages: state.messages.map((m) =>
         m._id === messageId
-          ? { ...m, deleted: true, text: null, image: null, video: null }
+          ? { ...m, deleted: true, text: null, image: null, video: null, sticker: null, gif: null }
           : m
       ),
     }));
-
     try {
       await axiosInstance.delete(`/messages/${messageId}`);
     } catch (error) {
@@ -95,31 +105,47 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // 🔹 Subscribe to socket events
   subscribeToMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
-    // ✅ New incoming message
+    // New incoming message
     socket.on("newMessage", (newMessage) => {
-      const { selectedUser, messages } = get();
-      if (newMessage.sender?._id !== selectedUser?._id) return;
-      set({ messages: [...messages, newMessage] });
+      const { selectedUser } = get();
+      // Only add if the message is for the current chat
+      if (
+        (newMessage.senderId === selectedUser?._id || newMessage.receiverId === selectedUser?._id)
+      ) {
+        set((state) => {
+          // Remove any temp message with same text/media
+          const filtered = state.messages.filter(
+            (m) =>
+              !(
+                m._id.startsWith("temp-") &&
+                ((m.text && m.text === newMessage.text) ||
+                  (m.image && m.image === newMessage.image) ||
+                  (m.video && m.video === newMessage.video) ||
+                  (m.sticker && m.sticker === newMessage.sticker) ||
+                  (m.gif && m.gif === newMessage.gif))
+              )
+          );
+          return { messages: [...filtered, newMessage] };
+        });
+      }
     });
 
-    // ✅ Deleted message event
-    socket.on("messageDeleted", ({ messageId }) => {
+    // Deleted message event
+    socket.on("messageDeleted", ({ messageId, message }) => {
       set((state) => ({
         messages: state.messages.map((m) =>
           m._id === messageId
-            ? { ...m, deleted: true, text: null, image: null, video: null }
+            ? { ...m, ...message }
             : m
         ),
       }));
     });
   },
 
-  // 🔹 Unsubscribe from socket
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
@@ -127,6 +153,5 @@ export const useChatStore = create((set, get) => ({
     socket.off("messageDeleted");
   },
 
-  // 🔹 Change selected user
   setSelectedUser: (selectedUser) => set({ selectedUser }),
 }));
