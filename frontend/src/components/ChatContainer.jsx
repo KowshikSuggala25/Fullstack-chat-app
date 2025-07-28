@@ -5,9 +5,8 @@ import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { formatMessageTime } from "../lib/utils";
-import { Download, Trash, X, ChevronDown, Plus } from "lucide-react";
+import { Download, Trash, X, ChevronDown, Plus, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
-import axios from "axios";
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 
@@ -24,6 +23,9 @@ const ChatContainer = () => {
     subscribeToMessages,
     unsubscribeFromMessages,
     deleteMessage,
+    addReaction,
+    sendingMessages,
+    deletingMessages
   } = useChatStore();
 
   const { authUser } = useAuthStore();
@@ -106,14 +108,8 @@ const ChatContainer = () => {
   };
 
   const handleReact = async (messageId, emoji) => {
-    try {
-      await axios.post(`/api/messages/${messageId}/react`, { emoji }, { withCredentials: true });
-      await getMessages(selectedUser._id);
-      closeAllReactionPickers();
-    } catch (err) {
-      console.error("Error reacting:", err);
-      toast.error("Failed to add reaction");
-    }
+    await addReaction(messageId, emoji);
+    closeAllReactionPickers();
   };
 
   const handleMessageMouseEnter = (messageId) => {
@@ -219,13 +215,15 @@ const ChatContainer = () => {
           const isMyMessage = message.senderId === authUser._id;
           const isMessageDeleted = message.deleted;
           const isLastMessage = index === messages.length - 1;
+          const isMessageSending = sendingMessages.has(message._id) || message.isSending;
+          const isMessageDeleting = deletingMessages.has(message._id) || message.isDeleting;
 
           const isQuickPickerActive = showReactionPicker === message._id;
           const isFullPickerActive = showFullEmojiPickerId === message._id;
           // --- END MOVED DEFINITIONS ---
 
           // showArrowButton now uses correctly scoped variables
-          const showArrowButton = hoveredMessageId === message._id && !isMessageDeleted && !isQuickPickerActive && !isFullPickerActive;
+          const showArrowButton = hoveredMessageId === message._id && !isMessageDeleted && !isQuickPickerActive && !isFullPickerActive && !isMessageSending && !isMessageDeleting;
 
           const commonPickerButtonClasses = `p-1 rounded-full text-xl transition-all duration-150 ease-in-out transform hover:scale-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-75`;
 
@@ -263,15 +261,16 @@ const ChatContainer = () => {
 
                 {isMyMessage && !isMessageDeleted && (
                   <button
-                    onClick={() => handleDeleteMessage(message._id)}
+                    onClick={() => !isMessageDeleting && handleDeleteMessage(message._id)}
                     className="ml-2 p-1 rounded-full
                       bg-white/30 backdrop-blur-md shadow-lg
                       hover:bg-red-500/60 hover:scale-110 transition-all duration-300
                       border border-white/40
-                      text-red-500"
+                      text-red-500 disabled:opacity-50"
                     title="Delete message"
+                    disabled={isMessageDeleting}
                   >
-                    <Trash size={18} />
+                    {isMessageDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash size={18} />}
                   </button>
                 )}
               </div>
@@ -289,53 +288,94 @@ const ChatContainer = () => {
                 <div
                   ref={messageBubbleRef}
                   className={`chat-bubble flex flex-col relative
-                    ${isMyMessage ? "bg-primary text-white" : "bg-base-300 text-base-content"}`}
+                    ${isMyMessage ? "bg-primary text-white" : "bg-base-300 text-base-content"}
+                    ${isMessageSending ? "opacity-70" : ""}
+                    ${isMessageDeleting ? "opacity-50" : ""}`}
                 >
+                  {/* Sending indicator */}
+                  {isMessageSending && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <Loader2 size={10} className="animate-spin text-white" />
+                    </div>
+                  )}
+                  
+                  {/* Deleting indicator */}
+                  {isMessageDeleting && (
+                    <div className="absolute inset-0 bg-red-500/20 rounded-lg flex items-center justify-center">
+                      <Loader2 size={20} className="animate-spin text-red-500" />
+                    </div>
+                  )}
                   {isMessageDeleted ? (
                     <p className="italic text-zinc-400">This message was deleted.</p>
                   ) : (
                     <>
                       {message.image && (
                         <div className="relative">
-                          <a href={message.image} target="_blank" rel="noopener noreferrer">
+                          {message.image.startsWith('data:') ? (
                             <img
                               src={message.image}
                               alt="Attachment"
                               className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = message.image;
+                                link.download = `image-${Date.now()}.png`;
+                                link.click();
+                              }}
                             />
-                          </a>
-                          <a
-                            href={message.image}
-                            download
-                            className="absolute top-1 right-1 p-1 rounded-full
-                              bg-white/30 backdrop-blur-md shadow-lg
-                              hover:bg-white/60 hover:scale-110 transition-all duration-300
-                              border border-white/40 text-primary"
-                            title="Download image"
-                          >
-                            <Download size={18} />
-                          </a>
+                          ) : (
+                            <a href={message.image} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={message.image}
+                                alt="Attachment"
+                                className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                              />
+                            </a>
+                          )}
+                          {!message.image.startsWith('data:') && (
+                            <a
+                              href={message.image}
+                              download
+                              className="absolute top-1 right-1 p-1 rounded-full
+                                bg-white/30 backdrop-blur-md shadow-lg
+                                hover:bg-white/60 hover:scale-110 transition-all duration-300
+                                border border-white/40 text-primary"
+                              title="Download image"
+                            >
+                              <Download size={18} />
+                            </a>
+                          )}
                         </div>
                       )}
 
                       {message.video && (
                         <div className="relative">
-                          <video
-                            controls
-                            src={message.video}
-                            className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
-                          />
-                          <a
-                            href={message.video}
-                            download
-                            className="absolute top-1 right-1 p-1 rounded-full
-                              bg-white/30 backdrop-blur-md shadow-lg
-                              hover:bg-white/60 hover:scale-110 transition-all duration-300
-                              border border-white/40 text-primary"
-                            title="Download video"
-                          >
-                            <Download size={16} />
-                          </a>
+                          {message.video.startsWith('data:') ? (
+                            <video
+                              controls
+                              src={message.video}
+                              className="sm:max-w-[200px] rounded-md mb-2"
+                            />
+                          ) : (
+                            <>
+                              <video
+                                controls
+                                src={message.video}
+                                className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                              />
+                              <a
+                                href={message.video}
+                                download
+                                className="absolute top-1 right-1 p-1 rounded-full
+                                  bg-white/30 backdrop-blur-md shadow-lg
+                                  hover:bg-white/60 hover:scale-110 transition-all duration-300
+                                  border border-white/40 text-primary"
+                                title="Download video"
+                              >
+                                <Download size={16} />
+                              </a>
+                            </>
+                          )}
                         </div>
                       )}
 
@@ -438,7 +478,7 @@ const ChatContainer = () => {
                 </div>
 
                 {/* 🟣 The ChevronDown reaction trigger button (beside the bubble) */}
-                {showArrowButton && !isMessageDeleted && (
+                {showArrowButton && !isMessageDeleted && !isMessageSending && !isMessageDeleting && (
                     <div
                         className={`relative z-10 flex ${isMyMessage ? 'justify-start' : 'justify-end'}`}
                     >
@@ -459,7 +499,7 @@ const ChatContainer = () => {
         })}
       </div>
 
-      <MessageInput className="flex-shrink-0" selectedUser={selectedUser} getMessages={getMessages} />
+      <MessageInput className="flex-shrink-0" selectedUser={selectedUser} />
 
       {showInfo && infoUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">

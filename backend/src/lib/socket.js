@@ -38,15 +38,10 @@ io.on("connection", (socket) => {
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   // Handle incoming message
-  socket.on("sendMessage", ({ receiverId, text, image, sender }) => {
+  socket.on("sendMessage", ({ receiverId, message }) => {
     const receiverSocketId = userSocketMap[receiverId];
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", {
-        sender,
-        text,
-        image,
-        createdAt: new Date(),
-      });
+      io.to(receiverSocketId).emit("newMessage", message);
     }
   });
 

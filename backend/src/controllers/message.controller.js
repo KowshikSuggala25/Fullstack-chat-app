@@ -51,12 +51,17 @@ export const sendMessage = async (req, res) => {
     let imageUrl = null;
     let videoUrl = null;
 
-    if (image) {
+    // Handle base64 images and videos directly
+    if (image && image.startsWith('data:')) {
+      imageUrl = image; // Store base64 directly for now
+    } else if (image) {
       const result = await cloudinary.uploader.upload(image);
       imageUrl = result.secure_url;
     }
 
-    if (video) {
+    if (video && video.startsWith('data:')) {
+      videoUrl = video; // Store base64 directly for now
+    } else if (video) {
       const result = await cloudinary.uploader.upload(video, { resource_type: "video" });
       videoUrl = result.secure_url;
     }
@@ -74,10 +79,21 @@ export const sendMessage = async (req, res) => {
     await newMessage.save();
     await newMessage.populate("senderId", "fullName username profilePic");
     await newMessage.populate("receiverId", "fullName username profilePic");
+    await newMessage.populate({
+      path: "reactions.userId",
+      select: "fullName profilePic",
+    });
 
     const receiverSocketId = getReceiverSocketId(receiverId);
+    const senderSocketId = getReceiverSocketId(senderId);
+    
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+    
+    // Also emit to sender for multi-device sync
+    if (senderSocketId && senderSocketId !== receiverSocketId) {
+      io.to(senderSocketId).emit("newMessage", newMessage);
     }
 
     res.status(201).json(newMessage);
@@ -118,6 +134,22 @@ export const reactToMessage = async (req, res) => {
       select: "fullName profilePic",
     });
 
+    // Emit reaction update to both users
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    const senderSocketId = getReceiverSocketId(message.senderId);
+    
+    const reactionData = {
+      messageId: message._id,
+      reactions: message.reactions
+    };
+    
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageReacted", reactionData);
+    }
+    
+    if (senderSocketId && senderSocketId !== receiverSocketId) {
+      io.to(senderSocketId).emit("messageReacted", reactionData);
+    }
     res.status(200).json(message);
   } catch (err) {
     console.error("React error:", err);

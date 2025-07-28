@@ -4,7 +4,6 @@ import { Image, Send, Smile, X, Video, Sparkles, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
-import axios from "axios";
 
 // !! IMPORTANT: Your GIPHY API Key !!
 const GIPHY_API_KEY = "KN8iK1DEZPWMuVguf5tzRtlsvxmJCLly"; // Your provided API Key
@@ -26,10 +25,10 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
     const [mediaSearchTerm, setMediaSearchTerm] = useState("");
     const [isMediaLoading, setIsMediaLoading] = useState(false);
 
-    const [isSending, setIsSending] = useState(false); // <--- THIS IS HERE
-    const [isUploadingPreview, setIsUploadingPreview] = useState(false); // <--- THIS IS HERE
-    const [uploadProgress, setUploadProgress] = useState(0); // <--- THIS IS HERE
+    const [isUploadingPreview, setIsUploadingPreview] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
+    const { sendMessage } = useChatStore();
 
     const fileInputRef = useRef(null);
     const emojiButtonRef = useRef(null);
@@ -111,8 +110,9 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                         : GIPHY_TRENDING_GIFS_URL;
                 }
                 
-                const response = await axios.get(url);
-                setMediaItems(response.data.data);
+                const response = await fetch(url);
+                const data = await response.json();
+                setMediaItems(data.data);
             } catch (error) {
                 console.error("Error fetching media from GIPHY:", error);
                 toast.error("Failed to load media.");
@@ -174,61 +174,53 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
 
         const { text: msgText, image: imgUrl, video: vidUrl, sticker: stickerUrl, gif: gifUrl } = payload;
 
-        if (!msgText && !imgUrl && !vidUrl && !stickerUrl && !gifUrl) return;
+        // Check if we have any content to send
+        const hasText = msgText && msgText.trim();
+        const hasMedia = imgUrl || vidUrl || stickerUrl || gifUrl || imagePreview || videoPreview;
+        
+        if (!hasText && !hasMedia) return;
+        
         if (!selectedUser?._id) {
             toast.error("Please select a user to chat with.");
             return;
         }
 
-        const formData = new FormData();
-        formData.append('receiverId', selectedUser._id);
+        // Prepare message data
+        const messageData = {};
 
         if (gifUrl) {
-            formData.append('gif', gifUrl);
+            messageData.gif = gifUrl;
         } else if (stickerUrl) {
-            formData.append('sticker', stickerUrl);
+            messageData.sticker = stickerUrl;
+        } else if (imagePreview) {
+            messageData.image = imagePreview;
+        } else if (videoPreview) {
+            messageData.video = videoPreview;
         } else if (imgUrl) {
-            formData.append('image', imgUrl);
+            messageData.image = imgUrl;
         } else if (vidUrl) {
-            formData.append('video', vidUrl);
+            messageData.video = vidUrl;
         } else {
-            formData.append('text', msgText.trim());
+            messageData.text = msgText.trim();
         }
 
-        if (!imagePreview && !videoPreview) {
-             setIsUploadingPreview(true);
-             setUploadProgress(0);
-        }
-        
         closeAllPickers();
+        
+        // Clear input immediately for better UX
+        setText("");
+        setImagePreview(null);
+        setVideoPreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
 
-        setIsSending(true);
         try {
-            await axios.post(`/api/messages/send/${selectedUser._id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                withCredentials: true,
-                onUploadProgress: (progressEvent) => {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    setUploadProgress(percentCompleted);
-                }
-            });
-
-            setText("");
-            setImagePreview(null);
-            setVideoPreview(null);
-            toast.success("Message sent!");
-
-            if (getMessages) {
-                await getMessages(selectedUser._id);
-            }
+            // Use the optimistic sendMessage from store
+            await sendMessage(messageData);
         } catch (error) {
             console.error("Error sending message:", error);
-            const errorMessage = error.response?.data?.error || "Failed to send message.";
-            toast.error(errorMessage);
-        } finally {
-            setIsSending(false);
-            setIsUploadingPreview(false);
-            setUploadProgress(0);
+            // Restore input on error
+            setText(msgText || "");
+            if (imagePreview) setImagePreview(imagePreview);
+            if (videoPreview) setVideoPreview(videoPreview);
         }
     };
 
@@ -383,13 +375,10 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                                 hover:bg-primary hover:scale-110 transition-all duration-300
                                 border border-white/40 text-white h-10 min-h-10 flex items-center justify-center"
                     disabled={isSending || (!text.trim() && !imagePreview && !videoPreview)}
+                    disabled={!text.trim() && !imagePreview && !videoPreview}
                     title="Send"
                 >
-                    {/* The spinner is displayed based on isSending OR isUploadingPreview */}
-                    {/* CRITICAL: Add pointer-events-auto to ensure the spinner is clickable */}
-                    {isSending || isUploadingPreview ? 
-                        <span className="loading loading-spinner text-white w-5 h-5 pointer-events-auto"></span> 
-                        : <Send size={20} />}
+                    <Send size={20} />
                 </button>
             </form>
 
