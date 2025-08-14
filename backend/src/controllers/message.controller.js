@@ -50,13 +50,14 @@ export const sendMessage = async (req, res) => {
     let mediaUrl = null;
     let resourceType = 'text';
 
-    // Check if a file was uploaded by multer
     if (req.file) {
       const parser = new DatauriParser();
-      const file = parser.format(path.extname(req.file.originalname).toString(), req.file.buffer);
+      
+      // ✅ FIX: Use the mimetype to ensure proper format for Cloudinary
+      const fileData = parser.format(req.file.mimetype, req.file.buffer);
 
       const uploadOptions = {};
-
+      
       if (req.file.mimetype.startsWith('video/')) {
         uploadOptions.resource_type = 'video';
         resourceType = 'video';
@@ -65,8 +66,19 @@ export const sendMessage = async (req, res) => {
         resourceType = 'image';
       }
 
-      const result = await cloudinary.uploader.upload(file.content, uploadOptions);
-      mediaUrl = result.secure_url;
+      // 🔴 Make sure to add this try-catch block to log any upload errors from Cloudinary
+      try {
+        const result = await cloudinary.uploader.upload(fileData.content, uploadOptions);
+        mediaUrl = result.secure_url;
+      } catch (uploadError) {
+        console.error("Cloudinary upload failed:", uploadError);
+        // This will send an error response to the client instead of crashing the server
+        return res.status(500).json({ error: "Cloudinary upload failed", details: uploadError.message });
+      }
+    }
+
+    if (!text && !mediaUrl && !sticker && !gif) {
+      return res.status(400).json({ error: "Message must have content." });
     }
 
     const newMessage = new Message({
@@ -91,11 +103,11 @@ export const sendMessage = async (req, res) => {
 
     const receiverSocketId = getReceiverSocketId(receiverId);
     const senderSocketId = getReceiverSocketId(senderId);
-
+    
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", populatedMessage);
     }
-
+    
     if (senderSocketId && senderSocketId !== receiverSocketId) {
       io.to(senderSocketId).emit("newMessage", populatedMessage);
     }
