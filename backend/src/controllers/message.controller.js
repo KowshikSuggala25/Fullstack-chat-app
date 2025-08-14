@@ -2,8 +2,9 @@ import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
+import DatauriParser from "datauri/parser.js";
+import path from "path";
 
-// ✅ Get all users for sidebar (excluding logged-in user)
 export const getUsersForSidebar = async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user._id } }).select("-password");
@@ -14,7 +15,6 @@ export const getUsersForSidebar = async (req, res) => {
   }
 };
 
-// ✅ Fetch messages between 2 users
 export const getMessages = async (req, res) => {
   try {
     const myId = req.user._id;
@@ -41,69 +41,72 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ✅ Send a message (text / image / video / sticker / gif)
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image, video, sticker, gif } = req.body;
+    const { text, sticker, gif } = req.body;
     const receiverId = req.params.id;
     const senderId = req.user._id;
 
-    let imageUrl = null;
-    let videoUrl = null;
+    let mediaUrl = null;
+    let resourceType = 'text';
 
-    // Handle base64 images and videos directly
-    if (image && image.startsWith('data:')) {
-      imageUrl = image; // Store base64 directly for now
-    } else if (image) {
-      const result = await cloudinary.uploader.upload(image);
-      imageUrl = result.secure_url;
-    }
+    // Check if a file was uploaded by multer
+    if (req.file) {
+      const parser = new DatauriParser();
+      const file = parser.format(path.extname(req.file.originalname).toString(), req.file.buffer);
 
-    if (video && video.startsWith('data:')) {
-      videoUrl = video; // Store base64 directly for now
-    } else if (video) {
-      const result = await cloudinary.uploader.upload(video, { resource_type: "video" });
-      videoUrl = result.secure_url;
+      const uploadOptions = {};
+
+      if (req.file.mimetype.startsWith('video/')) {
+        uploadOptions.resource_type = 'video';
+        resourceType = 'video';
+      } else if (req.file.mimetype.startsWith('image/')) {
+        uploadOptions.resource_type = 'image';
+        resourceType = 'image';
+      }
+
+      const result = await cloudinary.uploader.upload(file.content, uploadOptions);
+      mediaUrl = result.secure_url;
     }
 
     const newMessage = new Message({
       senderId,
       receiverId,
       text: text || null,
-      image: imageUrl,
-      video: videoUrl,
+      image: resourceType === 'image' ? mediaUrl : null,
+      video: resourceType === 'video' ? mediaUrl : null,
       sticker: sticker || null,
       gif: gif || null,
     });
 
     await newMessage.save();
-    await newMessage.populate("senderId", "fullName username profilePic");
-    await newMessage.populate("receiverId", "fullName username profilePic");
-    await newMessage.populate({
-      path: "reactions.userId",
-      select: "fullName profilePic",
-    });
+
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("senderId", "fullName username profilePic")
+      .populate("receiverId", "fullName username profilePic")
+      .populate({
+        path: "reactions.userId",
+        select: "fullName profilePic",
+      });
 
     const receiverSocketId = getReceiverSocketId(receiverId);
     const senderSocketId = getReceiverSocketId(senderId);
-    
+
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
-    }
-    
-    // Also emit to sender for multi-device sync
-    if (senderSocketId && senderSocketId !== receiverSocketId) {
-      io.to(senderSocketId).emit("newMessage", newMessage);
+      io.to(receiverSocketId).emit("newMessage", populatedMessage);
     }
 
-    res.status(201).json(newMessage);
+    if (senderSocketId && senderSocketId !== receiverSocketId) {
+      io.to(senderSocketId).emit("newMessage", populatedMessage);
+    }
+
+    res.status(201).json(populatedMessage);
   } catch (error) {
     console.error("Send message error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
-// ✅ React to message
 export const reactToMessage = async (req, res) => {
   const { id: messageId } = req.params;
   const { emoji } = req.body;
@@ -120,12 +123,12 @@ export const reactToMessage = async (req, res) => {
     if (existingIndex !== -1) {
       const current = message.reactions[existingIndex];
       if (current.emoji === emoji) {
-        message.reactions.splice(existingIndex, 1); // toggle off
+        message.reactions.splice(existingIndex, 1);
       } else {
-        message.reactions[existingIndex].emoji = emoji; // update
+        message.reactions[existingIndex].emoji = emoji;
       }
     } else {
-      message.reactions.push({ userId, emoji }); // add new
+      message.reactions.push({ userId, emoji });
     }
 
     await message.save();
@@ -134,7 +137,6 @@ export const reactToMessage = async (req, res) => {
       select: "fullName profilePic",
     });
 
-    // Emit reaction update to both users
     const receiverSocketId = getReceiverSocketId(message.receiverId);
     const senderSocketId = getReceiverSocketId(message.senderId);
     
@@ -157,7 +159,6 @@ export const reactToMessage = async (req, res) => {
   }
 };
 
-// ✅ Delete message (soft delete)
 export const deleteMessage = async (req, res) => {
   try {
     const { id: messageId } = req.params;

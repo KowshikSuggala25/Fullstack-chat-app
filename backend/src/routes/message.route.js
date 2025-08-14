@@ -14,7 +14,8 @@ console.log('message.route.js loaded ✅'); // Log for debugging
 const router = express.Router();
 
 // Multer middleware — handles form-data (text, base64 media, or file if needed)
-const upload = multer();
+const storage = multer.memoryStorage(); // Store the file in memory as a buffer
+const upload = multer({ storage: storage });
 
 // Routes
 router.get("/users", protectRoute, getUsersForSidebar);

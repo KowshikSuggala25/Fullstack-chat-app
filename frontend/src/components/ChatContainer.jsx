@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import ChatHeader from "./ChatHeader";
@@ -37,7 +37,6 @@ const ChatContainer = () => {
   const [showFullEmojiPickerId, setShowFullEmojiPickerId] = useState(null);
   const [fullPickerVerticalPosition, setFullPickerVerticalPosition] = useState('');
 
-  const [hoveredMessageId, setHoveredMessageId] = useState(null);
   const longPressTimerRef = useRef(null);
   const quickReactionPickerRef = useRef(null);
   const fullEmojiPickerRef = useRef(null);
@@ -51,7 +50,6 @@ const ChatContainer = () => {
     setShowReactionPicker(null);
     setShowFullEmojiPickerId(null);
     setLiveEmoji(null);
-    setHoveredMessageId(null);
   }, []);
 
   useEffect(() => {
@@ -77,7 +75,6 @@ const ChatContainer = () => {
     };
   }, [showReactionPicker, showFullEmojiPickerId, closeAllReactionPickers]);
 
-
   useEffect(() => {
     if (!selectedUser?._id) return;
     getMessages(selectedUser._id);
@@ -85,12 +82,9 @@ const ChatContainer = () => {
     return () => unsubscribeFromMessages();
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (messageEndRef.current) {
-        const timer = setTimeout(() => {
-            messageEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-        }, 100);
-        return () => clearTimeout(timer);
+        messageEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [messages.length, isMessagesLoading]);
 
@@ -110,16 +104,6 @@ const ChatContainer = () => {
   const handleReact = async (messageId, emoji) => {
     await addReaction(messageId, emoji);
     closeAllReactionPickers();
-  };
-
-  const handleMessageMouseEnter = (messageId) => {
-    setHoveredMessageId(messageId);
-  };
-
-  const handleMessageMouseLeave = () => {
-    if (showReactionPicker !== hoveredMessageId && showFullEmojiPickerId !== hoveredMessageId) {
-        setHoveredMessageId(null);
-    }
   };
 
   const handleMessageMouseDown = (messageId) => {
@@ -211,20 +195,21 @@ const ChatContainer = () => {
 
       <div ref={messagesScrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {Array.isArray(messages) && messages.map((message, index) => {
-          // --- MOVED DEFINITIONS INSIDE LOOP ---
-          const isMyMessage = message.senderId === authUser._id;
+          // ✅ FINAL FIX: This robust check gets the sender's ID whether it's a string or an object,
+          // ensuring the message is always on the correct side.
+          const senderIdFromMessage = typeof message.senderId === 'object' 
+                                      ? message.senderId._id 
+                                      : message.senderId;
+          const isMyMessage = senderIdFromMessage === authUser._id;
           const isMessageDeleted = message.deleted;
           const isLastMessage = index === messages.length - 1;
-          const isMessageSending = sendingMessages.has(message._id) || message.isSending;
-          const isMessageDeleting = deletingMessages.has(message._id) || message.isDeleting;
+          const isMessageSending = sendingMessages instanceof Set && sendingMessages.has(message._id) || message.isSending;
+          const isMessageDeleting = deletingMessages instanceof Set && deletingMessages.has(message._id) || message.isDeleting;
 
           const isQuickPickerActive = showReactionPicker === message._id;
           const isFullPickerActive = showFullEmojiPickerId === message._id;
-          // --- END MOVED DEFINITIONS ---
 
-          // showArrowButton now uses correctly scoped variables
-          const showArrowButton = hoveredMessageId === message._id && !isMessageDeleted && !isQuickPickerActive && !isFullPickerActive && !isMessageSending && !isMessageDeleting;
-
+          const showArrowButton = !isMessageDeleted && !isQuickPickerActive && !isFullPickerActive && !isMessageSending && !isMessageDeleting;
           const commonPickerButtonClasses = `p-1 rounded-full text-xl transition-all duration-150 ease-in-out transform hover:scale-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-75`;
 
           return (
@@ -277,8 +262,6 @@ const ChatContainer = () => {
 
               <div
                 className={`flex items-center gap-1 ${isMyMessage ? 'flex-row-reverse' : 'flex-row'}`}
-                onMouseEnter={() => handleMessageMouseEnter(message._id)}
-                onMouseLeave={handleMessageMouseLeave}
                 onMouseDown={() => handleMessageMouseDown(message._id)}
                 onMouseUp={handleMessageMouseUp}
                 onTouchStart={() => handleMessageTouchStart(message._id)}
@@ -292,47 +275,31 @@ const ChatContainer = () => {
                     ${isMessageSending ? "opacity-70" : ""}
                     ${isMessageDeleting ? "opacity-50" : ""}`}
                 >
-                  {/* Sending indicator */}
-                  {isMessageSending && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <Loader2 size={10} className="animate-spin text-white" />
-                    </div>
-                  )}
-                  
-                  {/* Deleting indicator */}
-                  {isMessageDeleting && (
-                    <div className="absolute inset-0 bg-red-500/20 rounded-lg flex items-center justify-center">
-                      <Loader2 size={20} className="animate-spin text-red-500" />
-                    </div>
-                  )}
-                  {isMessageDeleted ? (
-                    <p className="italic text-zinc-400">This message was deleted.</p>
-                  ) : (
-                    <>
-                      {message.image && (
-                        <div className="relative">
-                          {message.image.startsWith('data:') ? (
-                            <img
-                              src={message.image}
-                              alt="Attachment"
-                              className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = message.image;
-                                link.download = `image-${Date.now()}.png`;
-                                link.click();
-                              }}
-                            />
-                          ) : (
+                  <>
+                    {isMessageSending && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                        <Loader2 size={10} className="animate-spin text-white" />
+                      </div>
+                    )}
+                    
+                    {isMessageDeleting && (
+                      <div className="absolute inset-0 bg-red-500/20 rounded-lg flex items-center justify-center">
+                        <Loader2 size={20} className="animate-spin text-red-500" />
+                      </div>
+                    )}
+                    {isMessageDeleted ? (
+                      <p className="italic text-zinc-400">This message was deleted.</p>
+                    ) : (
+                      <>
+                        {message.image && (
+                          <div className="relative">
                             <a href={message.image} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={message.image}
-                                alt="Attachment"
-                                className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
-                              />
+                                <img
+                                  src={message.image}
+                                  alt="Attachment"
+                                  className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
+                                />
                             </a>
-                          )}
-                          {!message.image.startsWith('data:') && (
                             <a
                               href={message.image}
                               download
@@ -344,148 +311,124 @@ const ChatContainer = () => {
                             >
                               <Download size={18} />
                             </a>
-                          )}
-                        </div>
-                      )}
-
-                      {message.video && (
-                        <div className="relative">
-                          {message.video.startsWith('data:') ? (
+                          </div>
+                        )}
+                        {message.video && (
+                          <div className="relative">
                             <video
                               controls
                               src={message.video}
-                              className="sm:max-w-[200px] rounded-md mb-2"
+                              className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
                             />
-                          ) : (
-                            <>
-                              <video
-                                controls
-                                src={message.video}
-                                className="sm:max-w-[200px] rounded-md mb-2 cursor-pointer hover:opacity-90 transition"
-                              />
-                              <a
-                                href={message.video}
-                                download
-                                className="absolute top-1 right-1 p-1 rounded-full
-                                  bg-white/30 backdrop-blur-md shadow-lg
-                                  hover:bg-white/60 hover:scale-110 transition-all duration-300
-                                  border border-white/40 text-primary"
-                                title="Download video"
-                              >
-                                <Download size={16} />
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {message.sticker && (
-                          <div className="relative mb-2">
-                              <img
-                                  src={message.sticker}
-                                  alt="Sticker"
-                                  className="sm:max-w-[120px] rounded-md object-contain cursor-pointer"
-                              />
-                          </div>
-                      )}
-
-                      {message.gif && (
-                          <div className="relative mb-2">
-                              <img
-                                  src={message.gif}
-                                  alt="GIF"
-                                  className="sm:max-w-[200px] rounded-md object-contain cursor-pointer"
-                              />
-                          </div>
-                      )}
-
-                      {message.text && (
-                          <p className="max-w-xs">
-                              {message.text}
-                          </p>
-                      )}
-
-                      {/* 🟣 Reactions list (applied reactions) */}
-                      {message.reactions && message.reactions.length > 0 && (
-                        <div className="mt-2 flex gap-1 flex-wrap justify-end">
-                          {message.reactions.map((r, idx) => (
-                            <span
-                              key={idx}
-                              className="px-1.5 py-0.5 rounded-full bg-white/30 backdrop-blur-md text-xs border border-white/40"
-                              title={r.userId?.fullName || "User"}
+                            <a
+                              href={message.video}
+                              download
+                              className="absolute top-1 right-1 p-1 rounded-full
+                                bg-white/30 backdrop-blur-md shadow-lg
+                                hover:bg-white/60 hover:scale-110 transition-all duration-300
+                                border border-white/40 text-primary"
+                              title="Download video"
                             >
-                              {r.emoji}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 🟣 Quick Emoji Picker (6 emojis + Plus button) */}
-                      {isQuickPickerActive && !isMessageDeleted && (
-                          <div
-                              ref={quickReactionPickerRef}
-                              className={`absolute z-20 flex flex-row gap-0.5 px-1.5 py-1 rounded-full shadow-lg
-                                  bg-base-100/90 backdrop-blur-md border border-base-content/20
-                                  ${isMyMessage ? 'bottom-[calc(100%+8px)] right-0' : 'bottom-[calc(100%+8px)] left-0'}
-                                  `}
-                              onMouseEnter={() => setHoveredMessageId(message._id)}
-                              onMouseLeave={() => { /* Handled by handleClickOutside */ }}
-                          >
-                              {emojiOptions.map((emoji) => (
-                                  <button
-                                      key={emoji}
-                                      onClick={() => handleReact(message._id, emoji)}
-                                      onMouseEnter={() => handleEmojiMouseEnter(emoji)}
-                                      onMouseLeave={handleEmojiMouseLeave}
-                                      className={`${commonPickerButtonClasses} ${liveEmoji === emoji ? 'animate-bounce' : ''}`}
-                                  >
-                                      {emoji}
-                                  </button>
-                              ))}
-                              <button
-                                  className={`${commonPickerButtonClasses} text-base-content`}
-                                  onClick={(e) => {
-                                      e.stopPropagation();
-                                      setShowFullEmojiPickerId(message._id);
-                                      setShowReactionPicker(null);
-                                      determineFullPickerPosition(message._id);
-                                  }}
-                                  title="More emojis"
+                              <Download size={16} />
+                            </a>
+                          </div>
+                        )}
+                        {message.sticker && (
+                            <div className="relative mb-2">
+                                <img
+                                    src={message.sticker}
+                                    alt="Sticker"
+                                    className="sm:max-w-[120px] rounded-md object-contain cursor-pointer"
+                                />
+                            </div>
+                        )}
+                        {message.gif && (
+                            <div className="relative mb-2">
+                                <img
+                                    src={message.gif}
+                                    alt="GIF"
+                                    className="sm:max-w-[200px] rounded-md object-contain cursor-pointer"
+                                />
+                            </div>
+                        )}
+                        {message.text && (
+                            <p className="max-w-xs">
+                                {message.text}
+                            </p>
+                        )}
+                        {message.reactions && message.reactions.length > 0 && (
+                          <div className="mt-2 flex gap-1 flex-wrap justify-end">
+                            {message.reactions.map((r, idx) => (
+                              <span
+                                key={idx}
+                                className="px-1.5 py-0.5 rounded-full bg-white/30 backdrop-blur-md text-xs border border-white/40"
+                                title={r.userId?.fullName || "User"}
                               >
-                                  <Plus size={20} />
-                              </button>
+                                {r.emoji}
+                              </span>
+                            ))}
                           </div>
-                      )}
-
-                      {/* 🟣 Full Emoji Picker (searchable) */}
-                      {isFullPickerActive && !isMessageDeleted && (
-                          <div
-                              ref={fullEmojiPickerRef}
-                              className={`absolute z-30 ${fullPickerVerticalPosition}
-                                  ${isMyMessage ? 'right-0' : 'left-0'}
-                                  `}
-                          >
-                              <Picker
-                                  data={data}
-                                  onEmojiSelect={(emoji) => handleFullEmojiSelect(message._id, emoji)}
-                                  theme="light"
-                                  previewPosition="none"
-                              />
-                          </div>
-                      )}
-                    </>
-                  )}
+                        )}
+                        {isQuickPickerActive && !isMessageDeleted && (
+                            <div
+                                ref={quickReactionPickerRef}
+                                className={`absolute z-20 flex flex-row gap-0.5 px-1.5 py-1 rounded-full shadow-lg
+                                    bg-base-100/90 backdrop-blur-md border border-base-content/20
+                                    ${isMyMessage ? 'bottom-[calc(100%+8px)] right-0' : 'bottom-[calc(100%+8px)] left-0'}
+                                    `}
+                            >
+                                {emojiOptions.map((emoji) => (
+                                    <button
+                                        key={emoji}
+                                        onClick={() => handleReact(message._id, emoji)}
+                                        onMouseEnter={() => handleEmojiMouseEnter(emoji)}
+                                        onMouseLeave={handleEmojiMouseLeave}
+                                        className={`${commonPickerButtonClasses} ${liveEmoji === emoji ? 'animate-bounce' : ''}`}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                                <button
+                                    className={`${commonPickerButtonClasses} text-base-content`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowFullEmojiPickerId(message._id);
+                                        setShowReactionPicker(null);
+                                        determineFullPickerPosition(message._id);
+                                    }}
+                                    title="More emojis"
+                                >
+                                    <Plus size={20} />
+                                </button>
+                            </div>
+                        )}
+                        {isFullPickerActive && !isMessageDeleted && (
+                            <div
+                                ref={fullEmojiPickerRef}
+                                className={`absolute z-30 ${fullPickerVerticalPosition}
+                                    ${isMyMessage ? 'right-0' : 'left-0'}
+                                    `}
+                            >
+                                <Picker
+                                    data={data}
+                                    onEmojiSelect={(emoji) => handleFullEmojiSelect(message._id, emoji)}
+                                    theme="light"
+                                    previewPosition="none"
+                                />
+                            </div>
+                        )}
+                      </>
+                    )}
+                  </>
                 </div>
-
-                {/* 🟣 The ChevronDown reaction trigger button (beside the bubble) */}
                 {showArrowButton && !isMessageDeleted && !isMessageSending && !isMessageDeleting && (
                     <div
                         className={`relative z-10 flex ${isMyMessage ? 'justify-start' : 'justify-end'}`}
                     >
                         <button
                             className={`p-1 rounded-full bg-base-100/70 backdrop-blur-sm shadow-md
-                              hover:bg-base-100 transition-colors duration-200
-                              border border-base-content/20 text-base-content`}
+                                hover:bg-base-100 transition-colors duration-200
+                                border border-base-content/20 text-base-content`}
                             onClick={() => setShowReactionPicker(message._id)}
                             title="React to message"
                         >

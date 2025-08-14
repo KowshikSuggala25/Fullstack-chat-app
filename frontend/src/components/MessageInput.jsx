@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useChatStore } from "../store/useChatStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { Image, Send, Smile, X, Video, Sparkles, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import Picker from '@emoji-mart/react';
@@ -19,7 +20,9 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
     const [videoPreview, setVideoPreview] = useState(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showMediaPicker, setShowMediaPicker] = useState(false);
-
+    const [isSending, setIsSending] = useState(false);
+    const { authUser } = useAuthStore(); 
+    
     const [activeMediaType, setActiveMediaType] = useState('stickers');
     const [mediaItems, setMediaItems] = useState([]);
     const [mediaSearchTerm, setMediaSearchTerm] = useState("");
@@ -179,48 +182,52 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
         const hasMedia = imgUrl || vidUrl || stickerUrl || gifUrl || imagePreview || videoPreview;
         
         if (!hasText && !hasMedia) return;
-        
+
         if (!selectedUser?._id) {
             toast.error("Please select a user to chat with.");
             return;
         }
 
+        // Keep previews in temp variables BEFORE clearing
+        const tempImage = imagePreview || imgUrl;
+        const tempVideo = videoPreview || vidUrl;
+
         // Prepare message data
-        const messageData = {};
+        const messageData = {
+            senderId: authUser?._id, // ✅ Always attach senderId
+            receiverId: selectedUser._id,
+        };
 
         if (gifUrl) {
             messageData.gif = gifUrl;
         } else if (stickerUrl) {
             messageData.sticker = stickerUrl;
-        } else if (imagePreview) {
-            messageData.image = imagePreview;
-        } else if (videoPreview) {
-            messageData.video = videoPreview;
-        } else if (imgUrl) {
-            messageData.image = imgUrl;
-        } else if (vidUrl) {
-            messageData.video = vidUrl;
+        } else if (tempImage) {
+            messageData.image = tempImage;
+        } else if (tempVideo) {
+            messageData.video = tempVideo;
         } else {
             messageData.text = msgText.trim();
         }
 
         closeAllPickers();
-        
-        // Clear input immediately for better UX
+
+        // Clear input for better UX
         setText("");
         setImagePreview(null);
         setVideoPreview(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
 
         try {
-            // Use the optimistic sendMessage from store
+            // Use store's sendMessage (should handle optimistic UI)
             await sendMessage(messageData);
         } catch (error) {
             console.error("Error sending message:", error);
-            // Restore input on error
+
+            // Restore inputs on error
             setText(msgText || "");
-            if (imagePreview) setImagePreview(imagePreview);
-            if (videoPreview) setVideoPreview(videoPreview);
+            if (tempImage) setImagePreview(tempImage);
+            if (tempVideo) setVideoPreview(tempVideo);
         }
     };
 
@@ -374,8 +381,10 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                     className="p-2 rounded-full bg-primary/70 backdrop-blur-md shadow-lg
                                 hover:bg-primary hover:scale-110 transition-all duration-300
                                 border border-white/40 text-white h-10 min-h-10 flex items-center justify-center"
-                    disabled={isSending || (!text.trim() && !imagePreview && !videoPreview)}
-                    disabled={!text.trim() && !imagePreview && !videoPreview}
+                    disabled={
+                        isSending || (!text.trim() && !imagePreview && !videoPreview)
+                    }
+
                     title="Send"
                 >
                     <Send size={20} />

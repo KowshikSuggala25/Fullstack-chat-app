@@ -12,7 +12,7 @@ const getSocketBaseUrl = () => {
 };
 
 const API_BASE_URL = window.location.hostname === "localhost"
-  ? "http://localhost:10000/api"
+  ? "http://localhost:5000/api"
   : "/api";
 
 export const useAuthStore = create((set, get) => ({
