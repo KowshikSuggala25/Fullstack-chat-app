@@ -1,37 +1,35 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { Image, Send, Smile, X, Video, Sparkles, Search } from "lucide-react";
+import { Image, Send, Smile, X, Video, Sparkles, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 
-// !! IMPORTANT: Your GIPHY API Key !!
-const GIPHY_API_KEY = "KN8iK1DEZPWMuVguf5tzRtlsvxmJCLly"; // Your provided API Key
+const GIPHY_API_KEY = "KN8iK1DEZPWMuVguf5tzRtlsvxmJCLly"; 
 const GIPHY_TRENDING_STICKERS_URL = `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
-const GIPHY_SEARCH_STICKERS_URL = `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
+const GIPHY_SEARCH_STICKERS_URL = (query) => `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=24&rating=g`;
 const GIPHY_TRENDING_GIFS_URL = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
-const GIPHY_SEARCH_GIFS_URL = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&limit=24&rating=g`;
+const GIPHY_SEARCH_GIFS_URL = (query) => `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=24&rating=g`;
 
 
 const MessageInput = ({ className, selectedUser, getMessages }) => {
     const [text, setText] = useState("");
+    const [fileToUpload, setFileToUpload] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [videoPreview, setVideoPreview] = useState(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showMediaPicker, setShowMediaPicker] = useState(false);
-    const [isSending, setIsSending] = useState(false);
-    const { authUser } = useAuthStore(); 
+    
+    const { sendMessage, sendingMessages } = useChatStore();
+    const isSending = sendingMessages.size > 0;
     
     const [activeMediaType, setActiveMediaType] = useState('stickers');
     const [mediaItems, setMediaItems] = useState([]);
     const [mediaSearchTerm, setMediaSearchTerm] = useState("");
     const [isMediaLoading, setIsMediaLoading] = useState(false);
-
     const [isUploadingPreview, setIsUploadingPreview] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
-
-    const { sendMessage } = useChatStore();
 
     const fileInputRef = useRef(null);
     const emojiButtonRef = useRef(null);
@@ -45,49 +43,23 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
     }, []);
 
     useEffect(() => {
-        const handleClickOutsideEmoji = (event) => {
+        const handleClickOutside = (event) => {
             if (
-                showEmojiPicker &&
-                emojiPickerRef.current &&
-                !emojiPickerRef.current.contains(event.target) &&
-                emojiButtonRef.current &&
-                !emojiButtonRef.current.contains(event.target)
+                (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(event.target) && emojiButtonRef.current && !emojiButtonRef.current.contains(event.target)) ||
+                (showMediaPicker && mediaPickerRef.current && !mediaPickerRef.current.contains(event.target) && mediaButtonRef.current && !mediaButtonRef.current.contains(event.target))
             ) {
                 closeAllPickers();
             }
         };
 
-        const handleClickOutsideMedia = (event) => {
-            if (
-                showMediaPicker &&
-                mediaPickerRef.current &&
-                !mediaPickerRef.current.contains(event.target) &&
-                mediaButtonRef.current &&
-                !mediaButtonRef.current.contains(event.target)
-            ) {
-                closeAllPickers();
-            }
-        };
+        if (showEmojiPicker || showMediaPicker) {
+            document.addEventListener("mousedown", handleClickOutside);
+            document.addEventListener("touchstart", handleClickOutside);
+        }
 
-        if (showEmojiPicker) {
-            document.addEventListener("mousedown", handleClickOutsideEmoji);
-            document.addEventListener("touchstart", handleClickOutsideEmoji);
-        } else {
-            document.removeEventListener("mousedown", handleClickOutsideEmoji);
-            document.removeEventListener("touchstart", handleClickOutsideEmoji);
-        }
-        if (showMediaPicker) {
-            document.addEventListener("mousedown", handleClickOutsideMedia);
-            document.addEventListener("touchstart", handleClickOutsideMedia);
-        } else {
-            document.removeEventListener("mousedown", handleClickOutsideMedia);
-            document.removeEventListener("touchstart", handleClickOutsideMedia);
-        }
         return () => {
-            document.removeEventListener("mousedown", handleClickOutsideEmoji);
-            document.removeEventListener("touchstart", handleClickOutsideEmoji);
-            document.removeEventListener("mousedown", handleClickOutsideMedia);
-            document.removeEventListener("touchstart", handleClickOutsideMedia);
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("touchstart", handleClickOutside);
         };
     }, [showEmojiPicker, showMediaPicker, closeAllPickers]);
 
@@ -105,11 +77,11 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                 let url;
                 if (activeMediaType === 'stickers') {
                     url = mediaSearchTerm.trim()
-                        ? `${GIPHY_SEARCH_STICKERS_URL}&q=${encodeURIComponent(mediaSearchTerm)}`
+                        ? GIPHY_SEARCH_STICKERS_URL(mediaSearchTerm)
                         : GIPHY_TRENDING_STICKERS_URL;
                 } else { // activeMediaType === 'gifs'
                     url = mediaSearchTerm.trim()
-                        ? `${GIPHY_SEARCH_GIFS_URL}&q=${encodeURIComponent(mediaSearchTerm)}`
+                        ? GIPHY_SEARCH_GIFS_URL(mediaSearchTerm)
                         : GIPHY_TRENDING_GIFS_URL;
                 }
                 
@@ -136,114 +108,98 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
         }
     }, [showMediaPicker, activeMediaType, mediaSearchTerm]);
 
-
+    // ✅ FIX: Use URL.createObjectURL for reliable previews
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        setText("");
-        setImagePreview(null);
-        setVideoPreview(null);
+        if (file.size > 20 * 1024 * 1024) { 
+            toast.error("File size cannot exceed 20MB");
+            return;
+        }
+
         closeAllPickers();
-
-        setIsUploadingPreview(true);
-        setUploadProgress(0);
-
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            if (file.type.startsWith("image/")) {
-                setImagePreview(reader.result);
-            } else if (file.type.startsWith("video/")) {
-                setVideoPreview(reader.result);
-            } else {
-                toast.error("Please select an image or video file.");
-                removeMedia();
-                setIsUploadingPreview(false);
-            }
-        };
-        reader.readAsDataURL(file);
+        setFileToUpload(file);
+        
+        if (file.type.startsWith("image/")) {
+            setImagePreview(URL.createObjectURL(file));
+            setVideoPreview(null);
+        } else if (file.type.startsWith("video/")) {
+            setVideoPreview(URL.createObjectURL(file));
+            setImagePreview(null);
+        } else {
+            toast.error("Please select an image or video file.");
+            removeMedia();
+        }
     };
 
     const removeMedia = () => {
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        if (videoPreview) URL.revokeObjectURL(videoPreview);
+        setFileToUpload(null);
         setImagePreview(null);
         setVideoPreview(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        setIsUploadingPreview(false);
-        setUploadProgress(0);
     };
 
-    const handleSendMessage = async (e, payload = {}) => {
-        if (e && e.preventDefault) e.preventDefault();
+    const handleSendMessage = async (e) => {
+        if (e) e.preventDefault();
 
-        const { text: msgText, image: imgUrl, video: vidUrl, sticker: stickerUrl, gif: gifUrl } = payload;
-
-        // Check if we have any content to send
-        const hasText = msgText && msgText.trim();
-        const hasMedia = imgUrl || vidUrl || stickerUrl || gifUrl || imagePreview || videoPreview;
+        const hasText = text.trim();
+        const hasFile = fileToUpload;
         
-        if (!hasText && !hasMedia) return;
+        if (!hasText && !hasFile) return;
 
         if (!selectedUser?._id) {
             toast.error("Please select a user to chat with.");
             return;
         }
 
-        // Keep previews in temp variables BEFORE clearing
-        const tempImage = imagePreview || imgUrl;
-        const tempVideo = videoPreview || vidUrl;
-
-        // Prepare message data
-        const messageData = {
-            senderId: authUser?._id, // ✅ Always attach senderId
-            receiverId: selectedUser._id,
-        };
-
-        if (gifUrl) {
-            messageData.gif = gifUrl;
-        } else if (stickerUrl) {
-            messageData.sticker = stickerUrl;
-        } else if (tempImage) {
-            messageData.image = tempImage;
-        } else if (tempVideo) {
-            messageData.video = tempVideo;
+        let messageData = {};
+        if(hasFile) {
+            messageData = new FormData();
+            messageData.append('file', fileToUpload);
+            if (hasText) {
+                messageData.append('text', text);
+            }
         } else {
-            messageData.text = msgText.trim();
+            messageData = { text: hasText ? text : null };
         }
 
-        closeAllPickers();
+        const previewData = {
+          image: imagePreview,
+          video: videoPreview,
+        }
 
-        // Clear input for better UX
         setText("");
-        setImagePreview(null);
-        setVideoPreview(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        removeMedia();
 
         try {
-            // Use store's sendMessage (should handle optimistic UI)
-            await sendMessage(messageData);
+            // ✅ FIX: Pass the preview data to the sendMessage function
+            await sendMessage(messageData, previewData);
         } catch (error) {
             console.error("Error sending message:", error);
-
-            // Restore inputs on error
-            setText(msgText || "");
-            if (tempImage) setImagePreview(tempImage);
-            if (tempVideo) setVideoPreview(tempVideo);
+            setText(text || "");
+            if (hasFile) {
+                setFileToUpload(hasFile);
+                if (hasFile.type.startsWith('image/')) setImagePreview(URL.createObjectURL(hasFile));
+                if (hasFile.type.startsWith('video/')) setVideoPreview(URL.createObjectURL(hasFile));
+            }
         }
     };
-
-    const handleEmojiSelect = (emoji) => {
-        setText(prev => prev + emoji.native);
-        closeAllPickers();
-    };
-
+    
     const handleMediaSelect = (mediaItem) => {
-        let mediaUrl = mediaItem.images.fixed_height.url;
-
+        const mediaUrl = mediaItem.images.fixed_height.url;
+        
+        let messageData = {};
         if (activeMediaType === 'gifs') {
-            handleSendMessage({ preventDefault: () => {} }, { gif: mediaUrl });
+            messageData.gif = mediaUrl;
         } else {
-            handleSendMessage({ preventDefault: () => {} }, { sticker: mediaUrl });
+            messageData.sticker = mediaUrl;
         }
+        
+        closeAllPickers();
+        sendMessage(messageData);
     };
 
     const formBaseHeight = '4rem';
@@ -255,7 +211,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                         transition-all duration-300 ease-in-out`}
             style={{ height: (imagePreview || videoPreview) ? `calc(${previewHeight} + ${formBaseHeight})` : formBaseHeight }}
         >
-            {/* Preview Section */}
             <div 
                 className="relative w-full transition-all duration-300 ease-in-out overflow-hidden" 
                 style={{ height: (imagePreview || videoPreview) ? previewHeight : '0' }} 
@@ -277,21 +232,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                                     className="w-full h-full object-cover"
                                 />
                             )}
-                            {/* Progress Overlay */}
-                            {isUploadingPreview && uploadProgress < 100 && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
-                                    <div
-                                        className="radial-progress text-primary"
-                                        style={{ "--value": uploadProgress, "--size": "3rem", "--thickness": "3px" }}
-                                        role="progressbar"
-                                        aria-valuenow={uploadProgress}
-                                        aria-valuemin="0"
-                                        aria-valuemax="100"
-                                    >
-                                        <span className="text-sm text-white">{uploadProgress}%</span>
-                                    </div>
-                                </div>
-                            )}
                             <button
                                 onClick={removeMedia}
                                 className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300 flex items-center justify-center text-error z-20"
@@ -302,19 +242,17 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                             </button>
                         </div>
                         <div className="flex-1 text-sm text-zinc-500 truncate">
-                            {fileInputRef.current?.files[0]?.name}
+                            {fileToUpload?.name}
                         </div>
                     </div>
                 )}
             </div>
 
-            <form onSubmit={(e) => handleSendMessage(e, { text: text })} 
-                  className="flex-shrink-0 flex items-center gap-2 w-full px-2 py-2"
-                  style={{ height: formBaseHeight }}
+            <form onSubmit={handleSendMessage}
+                className="flex-shrink-0 flex items-center gap-2 w-full px-2 py-2"
+                style={{ height: formBaseHeight }}
             >
-
                 <div className="flex gap-1">
-                    {/* Emoji Button */}
                     <button
                         type="button"
                         className="p-2 rounded-full text-base-content hover:bg-base-200 transition-all duration-300 bg-white/30 backdrop-blur-md shadow-lg border border-white/40 hover:scale-110"
@@ -328,7 +266,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                         <Smile size={20} />
                     </button>
 
-                    {/* Media Picker Button (for Stickers/GIFs) */}
                     <button
                         type="button"
                         className="p-2 rounded-full text-base-content hover:bg-base-200 transition-colors bg-white/30 backdrop-blur-md shadow-lg border border-white/40 hover:scale-110"
@@ -344,7 +281,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                         <Sparkles size={20} />
                     </button>
 
-                    {/* Media Attachment Button (for local files) */}
                     <input
                         type="file"
                         accept="image/*,video/*"
@@ -381,24 +317,23 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                     className="p-2 rounded-full bg-primary/70 backdrop-blur-md shadow-lg
                                 hover:bg-primary hover:scale-110 transition-all duration-300
                                 border border-white/40 text-white h-10 min-h-10 flex items-center justify-center"
-                    disabled={
-                        isSending || (!text.trim() && !imagePreview && !videoPreview)
-                    }
-
+                    disabled={isSending || (!text.trim() && !imagePreview && !videoPreview)}
                     title="Send"
                 >
-                    <Send size={20} />
+                    {isSending ? (
+                        <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                        <Send size={20} />
+                    )}
                 </button>
             </form>
 
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div ref={emojiPickerRef} className="absolute bottom-[calc(100%+12px)] left-2 z-30">
                     <Picker data={data} onEmojiSelect={handleEmojiSelect} />
                 </div>
             )}
 
-            {/* Media Picker (Stickers/GIFs) */}
             {showMediaPicker && (
                 <div
                     ref={mediaPickerRef}
@@ -407,7 +342,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                                bg-base-100/90 backdrop-blur-md border border-base-content/20 rounded-lg shadow-xl
                                p-3 flex flex-col gap-2"
                 >
-                    {/* Tabs for Stickers and GIFs */}
                     <div className="flex gap-2 mb-2 justify-center">
                         <button
                             className={`btn btn-sm rounded-full ${activeMediaType === 'stickers' ? 'btn-primary' : 'btn-ghost'}`}
@@ -423,7 +357,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                         </button>
                     </div>
 
-                    {/* Search Input for Media */}
                     <div className="w-full relative mb-2">
                         <input
                             type="text"
@@ -442,7 +375,6 @@ const MessageInput = ({ className, selectedUser, getMessages }) => {
                         )}
                     </div>
 
-                    {/* Media Items Display Grid */}
                     {isMediaLoading ? (
                         <div className="flex justify-center items-center h-full w-full py-10">
                             <span className="loading loading-spinner loading-lg"></span>
