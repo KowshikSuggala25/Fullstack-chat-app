@@ -45,7 +45,7 @@ export const useChatStore = create((set, get) => ({
 
   sendMessage: async (messageData, previewData = {}) => {
     const { selectedUser } = get();
-    const { authUser, socket } = useAuthStore.getState();
+    const { authUser } = useAuthStore.getState();
 
     if (!selectedUser || !authUser) {
       toast.error("No user selected");
@@ -100,49 +100,24 @@ export const useChatStore = create((set, get) => ({
         headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : { 'Content-Type': 'application/json' }
       };
 
-      const res = await axiosInstance.post(
+      await axiosInstance.post(
         `/messages/send/${selectedUser._id}`,
         isFormData ? messageData : messageData,
         config
       );
       
-      const savedMessage = res.data;
-
+      // ✅ FIX: We only update the sending state here. The `newMessage`
+      // socket event will handle the messages state update, replacing the optimistic message.
       set(state => {
         const newSendingMessages = state.sendingMessages instanceof Set ? new Set(state.sendingMessages) : new Set();
         newSendingMessages.delete(optimisticId);
-        
-        // ✅ FIX: This logic is now handled by the 'newMessage' socket event on the client. // 🔴 Change: Commented out the client-side state update to prevent duplicates.
-        // The server will emit the new message, and the 'newMessage' socket listener will handle the state update.
-        /*
-        const updatedMessages = state.messages.map(msg => {
-          if (msg._id === optimisticId) {
-            if (msg.image && msg.image.startsWith('blob:')) {
-              URL.revokeObjectURL(msg.image);
-            }
-            if (msg.video && msg.video.startsWith('blob:')) {
-              URL.revokeObjectURL(msg.video);
-            }
-            return savedMessage;
-          }
-          return msg;
-        });
-        */
         return {
-          messages: state.messages,
           sendingMessages: newSendingMessages,
         };
       });
 
-      // ✅ FIX: This emit is not necessary, as the server will broadcast the message after saving it. // 🔴 Change: Removed redundant socket.emit("sendMessage")
-      // if (socket) {
-      //   socket.emit("sendMessage", {
-      //     receiverId: selectedUser._id,
-      //     message: savedMessage
-      //   });
-      // }
-
     } catch (error) {
+      // On failure, remove the optimistic message from the UI and the sending set.
       set(state => {
         const newSendingMessages = state.sendingMessages instanceof Set ? new Set(state.sendingMessages) : new Set();
         newSendingMessages.delete(optimisticId);
@@ -176,8 +151,8 @@ export const useChatStore = create((set, get) => ({
 
     try {
       await axiosInstance.delete(`/messages/${messageId}`);
-      // ✅ FIX: No need to update state here. The socket event "messageDeleted" will handle it. // 🔴 Change: Removed redundant state update.
-      // We only need to remove the deleting state after the API call succeeds.
+      // ✅ FIX: We only remove the messageId from the deleting set after success.
+      // The socket event will handle the messages state update.
       set(state => {
         const newDeletingMessages = state.deletingMessages instanceof Set ? new Set(state.deletingMessages) : new Set();
         newDeletingMessages.delete(messageId);
@@ -206,33 +181,35 @@ export const useChatStore = create((set, get) => ({
   subscribeToMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
-
+    
     socket.on("newMessage", (newMessage) => {
-      const { selectedUser } = get(); // ✅ FIX: Get the latest state
-      const isMyMessage = newMessage.senderId === useAuthStore.getState().authUser._id; // ✅ FIX: Check if the message is from me
-      const messageExists = get().messages.some(m => m._id === newMessage._id); // ✅ FIX: Check if the message already exists
-
-      if (!selectedUser) return;
+      const { selectedUser } = get();
       
-      // Only update if the message is for the currently selected chat and it's a new message
-      if ((newMessage.senderId === selectedUser._id || isMyMessage) && !messageExists) {
-        // Use set with a function to ensure we're using the latest state
-        set(state => ({
-          messages: [...state.messages.filter(m => m._id !== newMessage.tempId), newMessage] // ✅ FIX: Remove optimistic message and add real one
-        }));
-      } else if (isMyMessage && messageExists) {
-        // If the message is mine and exists, replace the optimistic message with the real one.
-        set(state => ({
-          messages: state.messages.map(m => m._id === newMessage.tempId ? newMessage : m)
-        }));
+      if (!selectedUser) return;
+
+      if (newMessage.senderId === selectedUser._id || newMessage.receiverId === selectedUser._id) {
+        set(state => {
+          const messages = [...state.messages];
+          const existingMessageIndex = messages.findIndex(m => m.isOptimistic && m.senderId === newMessage.senderId);
+
+          if (existingMessageIndex !== -1) {
+            messages[existingMessageIndex] = newMessage;
+          } else {
+            messages.push(newMessage);
+          }
+          return { messages };
+        });
       }
     });
 
-    socket.on("messageDeleted", ({ messageId }) => { // ✅ FIX: Destructure just the messageId
+    socket.on("messageDeleted", ({ messageId }) => {
+      const { selectedUser } = get();
+      if (!selectedUser) return;
+      
       set(state => ({
         messages: state.messages.map(m =>
           m._id === messageId
-            ? { ...m, deleted: true, text: "This message was deleted.", image: null, video: null, sticker: null, gif: null } // ✅ FIX: Set text and clear other content for the recipient
+            ? { ...m, deleted: true, text: "This message was deleted.", image: null, video: null, sticker: null, gif: null, isDeleting: false }
             : m
         )
       }));

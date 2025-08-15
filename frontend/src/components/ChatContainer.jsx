@@ -83,10 +83,13 @@ const ChatContainer = () => {
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useLayoutEffect(() => {
-    if (messageEndRef.current) {
-        messageEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-    }
-  }, [messages.length, isMessagesLoading]);
+  if (messageEndRef.current && messages.length > 0) {
+    const scrollTimeout = setTimeout(() => {
+      messageEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 0); 
+    return () => clearTimeout(scrollTimeout); 
+  }
+}, [messages.length, isMessagesLoading]);
 
   const handleDeleteMessage = async (messageId) => {
     const confirmed = window.confirm("Are you sure you want to delete this message?");
