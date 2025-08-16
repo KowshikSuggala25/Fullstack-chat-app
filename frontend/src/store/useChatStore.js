@@ -6,6 +6,7 @@ import { useAuthStore } from "./useAuthStore";
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
+  onlineUsers: [],
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
@@ -15,6 +16,7 @@ export const useChatStore = create((set, get) => ({
   isSidebarOpen: true,
   setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
 
+  // ✅ Fetch all chat users
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
@@ -28,6 +30,7 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // ✅ Fetch message history with selected user
   getMessages: async (userId) => {
     if (!userId) return toast.error("No user selected");
     set({ isMessagesLoading: true });
@@ -42,18 +45,34 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  sendMessage: async (messageData) => {
+  // ✅ Send message (API + emit to socket)
+    sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
     if (!selectedUser) return toast.error("No user selected");
 
     try {
-      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
-      set({ messages: [...messages, res.data] });
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to send message");
-    }
-  },
+        const res = await axiosInstance.post(
+        `/messages/send/${selectedUser._id}`,
+        messageData
+        );
 
+        const newMessage = res.data;
+        set({ messages: [...messages, newMessage] });
+
+        const socket = useAuthStore.getState().socket;
+        if (socket) {
+        socket.emit("sendMessage", { 
+            receiverId: selectedUser._id, 
+            message: newMessage 
+        });
+        }
+    } catch (error) {
+        toast.error(error?.response?.data?.message || "Failed to send message");
+    }
+    },
+
+
+  // ✅ Delete message (API + emit socket)
   deleteMessage: async (messageId) => {
     const { messages } = get();
     const messageToDelete = messages.find((m) => m._id === messageId);
@@ -72,6 +91,9 @@ export const useChatStore = create((set, get) => ({
 
     try {
       await axiosInstance.delete(`/messages/${messageId}`);
+      const socket = useAuthStore.getState().socket;
+      if (socket) socket.emit("deleteMessage", { messageId });
+
       set((state) => {
         const newDeletingMessages = new Set(state.deletingMessages);
         newDeletingMessages.delete(messageId);
@@ -93,19 +115,26 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // ✅ Subscribe to realtime events
   subscribeToMessages: () => {
-    const { selectedUser } = get();
-    if (!selectedUser) return;
-
     const socket = useAuthStore.getState().socket;
     if (!socket) return console.warn("Socket not initialized");
 
-    socket.on("newMessage", (newMessage) => {
-      const isRelevant =
-        newMessage.senderId === selectedUser._id || newMessage.receiverId === selectedUser._id;
-      if (!isRelevant) return;
+    socket.off("newMessage");
+    socket.off("messageDeleted");
+    socket.off("messageReacted");
+    socket.off("getOnlineUsers");
 
-      set({ messages: [...get().messages, newMessage] });
+    socket.on("newMessage", (newMessage) => {
+      const { selectedUser } = get();
+      const isRelevant =
+        selectedUser &&
+        (newMessage.senderId === selectedUser._id ||
+          newMessage.receiverId === selectedUser._id);
+
+      if (isRelevant) {
+        set({ messages: [...get().messages, newMessage] });
+      }
     });
 
     socket.on("messageDeleted", ({ messageId }) => {
@@ -134,19 +163,27 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
+
+    socket.on("getOnlineUsers", (users) => {
+      set({ onlineUsers: users });
+    });
   },
 
+  // ✅ Unsubscribe
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
     socket.off("newMessage");
     socket.off("messageDeleted");
     socket.off("messageReacted");
-    set({ deletingMessages: new Set() }); // cleanup
+    socket.off("getOnlineUsers");
+    set({ deletingMessages: new Set() });
   },
 
+  // ✅ Pick user
   setSelectedUser: (selectedUser) => set({ selectedUser }),
 
+  // ✅ React to messages
   addReaction: async (messageId, emoji) => {
     const { authUser } = useAuthStore.getState();
     if (!authUser) return;
@@ -187,6 +224,8 @@ export const useChatStore = create((set, get) => ({
 
     try {
       await axiosInstance.post(`/messages/${messageId}/react`, { emoji });
+      const socket = useAuthStore.getState().socket;
+      if (socket) socket.emit("reactMessage", { messageId, emoji });
     } catch (error) {
       const { selectedUser } = get();
       if (selectedUser) get().getMessages(selectedUser._id);

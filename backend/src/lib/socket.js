@@ -1,3 +1,4 @@
+// backend/socket.js
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
@@ -6,14 +7,14 @@ export const app = express();
 export const server = http.createServer(app);
 
 // Map userId -> socketId
-const userSocketMap = {};
+const userSocketMap = {}; 
 
 // Initialize Socket.io on server
 export const io = new Server(server, {
   cors: {
     origin: [
-      "http://localhost:5173",
-      "https://fullstack-chat-app-pb32.onrender.com"
+      "http://localhost:5173", // frontend local
+      "https://fullstack-chat-app-pb32.onrender.com", // deployed frontend
     ],
     credentials: true,
   },
@@ -32,16 +33,27 @@ io.on("connection", (socket) => {
   if (userId) {
     userSocketMap[userId] = socket.id;
     console.log(`✅ User ${userId} online`);
+
+    // send updated online users list
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
   }
 
-  // Notify all clients of updated online user list
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
-
   // Handle incoming message
-  socket.on("sendMessage", ({ receiverId, message }) => {
+  socket.on("sendMessage", ({ senderId, receiverId, message }) => {
     const receiverSocketId = userSocketMap[receiverId];
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", message);
+      io.to(receiverSocketId).emit("newMessage", { senderId, message });
+    }
+
+    // echo back to sender for confirmation (sync frontend store)
+    io.to(socket.id).emit("messageSent", { receiverId, message });
+  });
+
+  // Handle typing indicator
+  socket.on("typing", ({ receiverId, isTyping }) => {
+    const receiverSocketId = userSocketMap[receiverId];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("typing", { senderId: userId, isTyping });
     }
   });
 
