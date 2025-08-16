@@ -8,11 +8,6 @@ export const server = http.createServer(app);
 // Map userId -> socketId
 const userSocketMap = {};
 
-// Helper to get receiver's socketId
-export function getReceiverSocketId(userId) {
-  return userSocketMap[userId];
-}
-
 // Initialize Socket.io on server
 export const io = new Server(server, {
   cors: {
@@ -23,6 +18,11 @@ export const io = new Server(server, {
     credentials: true,
   },
 });
+
+// Helper to get receiver's socketId
+export function getReceiverSocketId(userId) {
+  return userSocketMap[userId];
+}
 
 io.on("connection", (socket) => {
   console.log("✅ User connected:", socket.id);

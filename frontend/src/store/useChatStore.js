@@ -43,93 +43,15 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  sendMessage: async (messageData, previewData = {}) => {
-    const { selectedUser } = get();
-    const { authUser } = useAuthStore.getState();
-
-    if (!selectedUser || !authUser) {
-      toast.error("No user selected");
-      return;
-    }
-    
-    const isFormData = messageData instanceof FormData;
-    const optimisticId = `temp-${Date.now()}`;
-    
-    let optimisticMessage;
-    if (isFormData) {
-      optimisticMessage = {
-        _id: optimisticId,
-        senderId: authUser._id,
-        receiverId: selectedUser._id,
-        text: messageData.get('text') || null,
-        image: previewData.image || null,
-        video: previewData.video || null,
-        createdAt: new Date().toISOString(),
-        reactions: [],
-        deleted: false,
-        isOptimistic: true,
-        isSending: true
-      };
-    } else {
-      optimisticMessage = {
-        _id: optimisticId,
-        senderId: authUser._id,
-        receiverId: selectedUser._id,
-        text: messageData.text || null,
-        sticker: messageData.sticker || null,
-        gif: messageData.gif || null,
-        createdAt: new Date().toISOString(),
-        reactions: [],
-        deleted: false,
-        isOptimistic: true,
-        isSending: true
-      };
-    }
-
-    set(state => {
-      const newSendingMessages = state.sendingMessages instanceof Set ? new Set(state.sendingMessages) : new Set();
-      newSendingMessages.add(optimisticId);
-      return {
-        messages: [...state.messages, optimisticMessage],
-        sendingMessages: newSendingMessages,
-      };
-    });
-
-    try {
-      const config = {
-        headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : { 'Content-Type': 'application/json' }
-      };
-
-      await axiosInstance.post(
-        `/messages/send/${selectedUser._id}`,
-        isFormData ? messageData : messageData,
-        config
-      );
-      
-      // ✅ FIX: We only update the sending state here. The `newMessage`
-      // socket event will handle the messages state update, replacing the optimistic message.
-      set(state => {
-        const newSendingMessages = state.sendingMessages instanceof Set ? new Set(state.sendingMessages) : new Set();
-        newSendingMessages.delete(optimisticId);
-        return {
-          sendingMessages: newSendingMessages,
-        };
-      });
-
-    } catch (error) {
-      // On failure, remove the optimistic message from the UI and the sending set.
-      set(state => {
-        const newSendingMessages = state.sendingMessages instanceof Set ? new Set(state.sendingMessages) : new Set();
-        newSendingMessages.delete(optimisticId);
-        return {
-          messages: state.messages.filter(msg => msg._id !== optimisticId),
-          sendingMessages: newSendingMessages,
-        };
-      });
-      toast.error("Failed to send message");
-      console.error("Send message error:", error);
-    }
-  },
+  sendMessage: async (messageData) => {
+    const { selectedUser, messages } = get();
+    try {
+      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
+      set({ messages: [...messages, res.data] });
+    } catch (error) {
+      toast.error(error.response.data.message);
+    }
+  },
 
   deleteMessage: async (messageId) => {
     const { messages } = get();
